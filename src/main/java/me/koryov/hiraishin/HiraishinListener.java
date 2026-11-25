@@ -17,7 +17,7 @@ public class HiraishinListener implements Listener {
         this.manager = manager;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onKunaiLaunch(PlayerLaunchProjectileEvent event) {
         if (!(event.getProjectile() instanceof Trident trident)) {
             return;
