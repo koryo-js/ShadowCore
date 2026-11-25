@@ -1,6 +1,8 @@
 package me.koryov;
 
 import me.koryov.bomb.RickPrimeBombChat;
+import me.koryov.hiraishin.HiraishinListener;
+import me.koryov.hiraishin.HiraishinManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
@@ -23,6 +25,8 @@ import me.koryov.portal.PortalSavedLocationManageGUI;
 import me.koryov.portal.PortalSavedLocationDeleteGUI;
 
 public final class ShadowCorePlugin extends JavaPlugin {
+
+    private HiraishinManager hiraishinManager;
 
 
     /*
@@ -60,10 +64,19 @@ public final class ShadowCorePlugin extends JavaPlugin {
                         .getLocation()
         );
 
+        hiraishinManager = new HiraishinManager(this);
+
         getServer()
                 .getPluginManager()
                 .registerEvents(
                         new YChatListener(this, ALLOWED_PLAYERS),
+                        this
+                );
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new HiraishinListener(hiraishinManager),
                         this
                 );
 
@@ -193,6 +206,10 @@ public final class ShadowCorePlugin extends JavaPlugin {
 
     }
 
+
+    public HiraishinManager getHiraishinManager() {
+        return hiraishinManager;
+    }
 
     /*
      * Check quyền sử dụng ~y-
