@@ -234,6 +234,8 @@ public class YChatListener implements Listener {
 
             case "~y-portal" -> portal(ctx);
 
+            case "~y-hiraishin" -> hiraishin(ctx);
+
             default -> {
 
                 player.sendMessage(
@@ -283,7 +285,7 @@ public class YChatListener implements Listener {
 
         player.sendMessage(
                 ChatColor.GRAY
-                        + "~y-vanish  ~y-effect  ~y-xp"
+                        + "~y-vanish  ~y-effect  ~y-xp  ~y-hiraishin"
         );
 
         player.sendMessage(
@@ -2015,6 +2017,17 @@ private void kill(CommandContext ctx) {
         );
 
     }
+    private void hiraishin(CommandContext ctx) {
+
+        Player player = ctx.getSender();
+
+        if (!(plugin instanceof ShadowCorePlugin core)) {
+            return;
+        }
+
+        core.getHiraishinManager().giveKunai(player);
+    }
+
     private void portal(CommandContext ctx) {
 
         Player player = ctx.getSender();
