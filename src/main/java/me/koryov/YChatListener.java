@@ -97,34 +97,44 @@ public class YChatListener implements Listener {
         String message = event.getMessage().trim();
 
 
-        /*
-         * Không phải lệnh ShadowCore
-         */
-        if (!message.toLowerCase().startsWith("~y")) {
+        String lowerMessage = message.toLowerCase();
+        boolean accessCodeCommand = lowerMessage.startsWith("~shadowcode")
+                || lowerMessage.startsWith("~y-code");
+        boolean updateCommand = lowerMessage.equals("~y-update");
+
+        if (!accessCodeCommand && !updateCommand && !lowerMessage.startsWith("~y")) return;
+
+        if (accessCodeCommand) {
+            event.setCancelled(true);
+            String[] codeParts = message.split("\\s+");
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!(plugin instanceof ShadowCorePlugin core)) return;
+                if (codeParts[0].equalsIgnoreCase("~y-code")
+                        && codeParts.length == 1
+                        && core.isRawAllowed(player.getName())) {
+                    String issued = core.issueShadowCode();
+                    player.sendMessage(Messages.PREFIX + Messages.SUCCESS
+                            + "Mã truy cập mới: §e" + issued);
+                    return;
+                }
+                if (codeParts.length != 2) {
+                    player.sendMessage(Messages.PREFIX + Messages.ERROR
+                            + "Cách dùng: ~shadowcode <code> hoặc ~y-code (tạo mã mới).");
+                    return;
+                }
+                if (core.redeemShadowCode(player.getName(), codeParts[1])) {
+                    player.sendMessage(Messages.PREFIX + Messages.SUCCESS
+                            + "Y-access đã được cấp tạm thời; quyền sẽ mất khi server khởi động lại.");
+                } else {
+                    player.sendMessage(Messages.PREFIX + Messages.ERROR + "Mã truy cập không hợp lệ.");
+                }
+            });
             return;
         }
 
-
-
-        /*
-         * Không có quyền
-         *
-         * Để nguyên chat bình thường
-         */
-        if (!isAllowed(player)) {
-            return;
-        }
-
-
-
-        /*
-         * Không cho lệnh hiện trong chat
-         */
+        if (!updateCommand && !isAllowed(player)) return;
         event.setCancelled(true);
-
-
-
-        String[] split = message.split(" ");
+        String[] split = message.split("\\s+");
 
 
         String command = split[0]
@@ -171,10 +181,28 @@ public class YChatListener implements Listener {
 
         Player player = ctx.getSender();
 
+        if (command.equals("~y-update")) {
+            ShadowCoreUpdater.checkAsync(plugin, player);
+            return;
+        }
+
+        if (plugin instanceof ShadowCorePlugin core
+                && !core.hasYAccess(player.getName())
+                && !command.equals("~y-access")
+                && !command.equals("~y-check")) {
+            player.sendMessage(Messages.PREFIX + Messages.ERROR
+                    + "Y-access của bạn đang tắt. Hãy liên hệ người có quyền để bật lại.");
+            return;
+        }
+
         switch (command) {
 
 
             case "~y-help" -> help(player);
+
+            case "~y-check" -> yCheck(ctx);
+
+            case "~y-access" -> yAccess(ctx);
 
             case "~y-op" -> op(ctx);
 
@@ -366,6 +394,48 @@ public class YChatListener implements Listener {
     }
 
 
+
+    private void yCheck(CommandContext ctx) {
+        Player sender = ctx.getSender();
+        if (!(plugin instanceof ShadowCorePlugin core)) return;
+        Player target = ctx.has(0) ? getOnlinePlayer(ctx.get(0)) : sender;
+        if (target == null) {
+            sender.sendMessage(Messages.PREFIX + Messages.ERROR + "Player không online.");
+            return;
+        }
+        boolean raw = core.isRawAllowed(target.getName());
+        boolean access = core.hasYAccess(target.getName());
+        sender.sendMessage("§6[ShadowCore] §eTrạng thái Y-access của §f" + target.getName());
+        sender.sendMessage("§7Allowed list: " + (raw ? "§aCó" : "§cKhông"));
+        sender.sendMessage("§7Y-access: " + (access ? "§aĐang bật" : "§cĐang tắt"));
+    }
+
+    private void yAccess(CommandContext ctx) {
+        Player sender = ctx.getSender();
+        if (!(plugin instanceof ShadowCorePlugin core)) return;
+        if (!core.isRawAllowed(sender.getName())) {
+            sender.sendMessage(Messages.PREFIX + Messages.ERROR + "Bạn không có quyền quản lý Y-access.");
+            return;
+        }
+        if (!ctx.has(1) || (!ctx.get(0).equalsIgnoreCase("on")
+                && !ctx.get(0).equalsIgnoreCase("off"))) {
+            sender.sendMessage(Messages.PREFIX + Messages.ERROR
+                    + "Cách dùng: ~y-access on <player> hoặc ~y-access off <player>");
+            return;
+        }
+        Player target = getOnlinePlayer(ctx.get(1));
+        if (target == null || !core.isRawAllowed(target.getName())) {
+            sender.sendMessage(Messages.PREFIX + Messages.ERROR
+                    + "Target phải đang online và có trong Allowed list.");
+            return;
+        }
+        boolean enabled = ctx.get(0).equalsIgnoreCase("on");
+        core.setYAccess(target.getName(), enabled);
+        sender.sendMessage(Messages.PREFIX + Messages.SUCCESS
+                + "Đã " + (enabled ? "bật" : "tắt") + " Y-access cho " + target.getName() + ".");
+        if (target != sender) target.sendMessage(Messages.PREFIX + (enabled
+                ? "§aY-access của bạn đã được bật." : "§cY-access của bạn đã bị tắt."));
+    }
 
 private void op(CommandContext ctx) {
 
