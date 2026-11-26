@@ -48,7 +48,6 @@ public final class TimeZoneListener implements Listener {
         player.playSound(player.getLocation(),
                 activated ? Sound.BLOCK_BEACON_ACTIVATE : Sound.BLOCK_BEACON_DEACTIVATE,
                 0.7f, activated ? 1.4f : 0.8f);
-        player.sendMessage(activated
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
