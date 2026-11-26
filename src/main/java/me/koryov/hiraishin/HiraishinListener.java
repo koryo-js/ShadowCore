@@ -8,8 +8,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 public class HiraishinListener implements Listener {
@@ -26,15 +24,17 @@ public class HiraishinListener implements Listener {
             return;
         }
 
-        if (!manager.isKunai(event.getItemStack())) {
+        ItemStack launchedItem = event.getItemStack();
+        if (!manager.isKunai(launchedItem)) {
             return;
         }
 
         Player player = event.getPlayer();
 
-        // We handle the consumption ourselves so every thrown kunai costs exactly one item.
+        // Paper's PlayerLaunchProjectileEvent does not expose getHand() here.
+        // Identify the source slot by matching the launched stack.
         event.setShouldConsume(false);
-        consumeOneKunai(player, event.getHand());
+        consumeOneKunai(player, launchedItem);
 
         manager.registerThrownKunai(player, trident);
     }
@@ -48,54 +48,43 @@ public class HiraishinListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onArmSwing(PlayerArmSwingEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) {
+        if (event.getHand().name().equals("OFF_HAND")) {
             return;
         }
 
         Player player = event.getPlayer();
 
-        if (!player.isSneaking()) {
-            return;
-        }
-
-        if (!manager.hasMark(player)) {
+        if (!player.isSneaking() || !manager.hasMark(player)) {
             return;
         }
 
         manager.teleportToKunai(player);
     }
 
-    private void consumeOneKunai(Player player, EquipmentSlot hand) {
-        ItemStack item;
+    private void consumeOneKunai(Player player, ItemStack launchedItem) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
 
-        if (hand == EquipmentSlot.OFF_HAND) {
-            item = player.getInventory().getItemInOffHand();
-
-            if (manager.isKunai(item)) {
-                if (item.getAmount() <= 1) {
-                    player.getInventory().setItemInOffHand(null);
-                } else {
-                    item.setAmount(item.getAmount() - 1);
-                }
-            }
-
+        if (manager.isKunai(mainHand) && mainHand.isSimilar(launchedItem)) {
+            removeOneFromStack(mainHand, true, player);
             return;
         }
 
-        item = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
 
-        if (manager.isKunai(item)) {
-            if (item.getAmount() <= 1) {
-                player.getInventory().setItemInMainHand(null);
-            } else {
-                item.setAmount(item.getAmount() - 1);
-            }
+        if (manager.isKunai(offHand) && offHand.isSimilar(launchedItem)) {
+            removeOneFromStack(offHand, false, player);
         }
     }
 
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        // Marks are stored in the player's PersistentDataContainer,
-        // so they survive logout/restart. Nothing needs to be cleared here.
+    private void removeOneFromStack(ItemStack item, boolean mainHand, Player player) {
+        if (item.getAmount() <= 1) {
+            if (mainHand) {
+                player.getInventory().setItemInMainHand(null);
+            } else {
+                player.getInventory().setItemInOffHand(null);
+            }
+        } else {
+            item.setAmount(item.getAmount() - 1);
+        }
     }
 }
