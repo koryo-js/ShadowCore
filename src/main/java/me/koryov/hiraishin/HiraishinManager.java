@@ -2,7 +2,6 @@ package me.koryov.hiraishin;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -13,16 +12,22 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 public class HiraishinManager {
 
     private final JavaPlugin plugin;
 
+    private final NamespacedKey marksKey;
     private final NamespacedKey markEntityKey;
     private final NamespacedKey ownerKey;
     private final NamespacedKey markWorldKey;
@@ -30,8 +35,12 @@ public class HiraishinManager {
     private final NamespacedKey markYKey;
     private final NamespacedKey markZKey;
 
+    private static final String MARK_SEPARATOR = ";";
+    private static final String FIELD_SEPARATOR = ",";
+
     public HiraishinManager(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.marksKey = new NamespacedKey(plugin, "hiraishin_marks");
         this.markEntityKey = new NamespacedKey(plugin, "hiraishin_mark_entity");
         this.ownerKey = new NamespacedKey(plugin, "hiraishin_owner");
         this.markWorldKey = new NamespacedKey(plugin, "hiraishin_world");
@@ -48,13 +57,17 @@ public class HiraishinManager {
         player.sendMessage("§6[ShadowCore] §eBạn đã nhận Phi Lôi Thần Kunai.");
     }
 
-    public boolean isKunai(org.bukkit.inventory.ItemStack item) {
+    public boolean isKunai(ItemStack item) {
         return HiraishinKunai.isKunai(plugin, item);
     }
 
+    /**
+     * Called when a special trident is launched.
+     *
+     * The inventory item is consumed by the listener. The thrown trident itself
+     * becomes one independent Hiraishin mark.
+     */
     public void registerThrownKunai(Player owner, Trident trident) {
-        removePreviousKunai(owner);
-
         PersistentDataContainer projectileData = trident.getPersistentDataContainer();
         projectileData.set(markEntityKey, PersistentDataType.BYTE, (byte) 1);
         projectileData.set(ownerKey, PersistentDataType.STRING, owner.getUniqueId().toString());
@@ -63,8 +76,19 @@ public class HiraishinManager {
         trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
         trident.setLifetimeTicks(Integer.MAX_VALUE);
 
-        saveMark(owner, trident.getUniqueId(), trident.getLocation());
-        owner.sendMessage("§6[Phi Lôi Thần] §eKunai đã được đánh dấu.");
+        HiraishinMark mark = new HiraishinMark(
+                trident.getUniqueId(),
+                trident.getLocation().clone()
+        );
+
+        List<HiraishinMark> marks = loadMarks(owner);
+        marks.add(mark);
+        saveMarks(owner, marks);
+
+        owner.sendMessage(
+                "§6[Phi Lôi Thần] §eĐã tạo dấu ấn §f#" + marks.size()
+                        + " §e. Còn " + countKunai(owner) + " kunai."
+        );
     }
 
     public void updateMarkFromProjectile(Trident trident) {
@@ -82,7 +106,14 @@ public class HiraishinManager {
         try {
             Player owner = Bukkit.getPlayer(UUID.fromString(ownerId));
             if (owner != null) {
-                saveMark(owner, trident.getUniqueId(), trident.getLocation());
+                List<HiraishinMark> marks = loadMarks(owner);
+                for (HiraishinMark mark : marks) {
+                    if (mark.entityId.equals(trident.getUniqueId())) {
+                        mark.location = trident.getLocation().clone();
+                        saveMarks(owner, marks);
+                        return;
+                    }
+                }
             }
         } catch (IllegalArgumentException ignored) {
             // Ignore malformed owner data.
@@ -90,54 +121,47 @@ public class HiraishinManager {
     }
 
     public void teleportToKunai(Player player) {
-        PersistentDataContainer data = player.getPersistentDataContainer();
-        String entityId = data.get(markEntityKey, PersistentDataType.STRING);
+        List<HiraishinMark> marks = loadMarks(player);
 
-        if (entityId == null) {
+        if (marks.isEmpty()) {
             player.sendMessage("§6[Phi Lôi Thần] §cBạn chưa ném Phi Lôi Thần Kunai.");
             return;
         }
 
-        Location markLocation = null;
+        HiraishinMark selected = selectMark(player, marks);
 
-        try {
-            Entity entity = Bukkit.getEntity(UUID.fromString(entityId));
-            if (entity instanceof Trident trident && trident.isValid()) {
-                String ownerId = trident.getPersistentDataContainer().get(
-                        ownerKey,
-                        PersistentDataType.STRING
-                );
-
-                if (player.getUniqueId().toString().equals(ownerId)) {
-                    markLocation = trident.getLocation().clone();
-                }
-            }
-        } catch (IllegalArgumentException ignored) {
-            // Fall back to the stored location below.
+        if (selected == null) {
+            player.sendMessage(
+                    "§6[Phi Lôi Thần] §7Không có dấu ấn nào trong hướng bạn đang nhìn."
+            );
+            return;
         }
 
-        if (markLocation == null) {
-            markLocation = readStoredLocation(data);
-        }
+        Location markLocation = getLiveMarkLocation(selected);
 
         if (markLocation == null || markLocation.getWorld() == null) {
-            clearMark(player);
+            marks.remove(selected);
+            saveMarks(player, marks);
             player.sendMessage("§6[Phi Lôi Thần] §cDấu ấn không còn hợp lệ.");
             return;
         }
+
+        selected.location = markLocation.clone();
 
         World world = markLocation.getWorld();
         int chunkX = markLocation.getBlockX() >> 4;
         int chunkZ = markLocation.getBlockZ() >> 4;
 
-        // Load only the single destination chunk when the mark is currently unloaded.
         if (!world.isChunkLoaded(chunkX, chunkZ)) {
             world.getChunkAt(chunkX, chunkZ);
         }
 
         Location destination = findSafeLocation(markLocation, player);
+
         if (destination == null) {
-            player.sendMessage("§6[Phi Lôi Thần] §cKhông tìm thấy vị trí an toàn cạnh kunai.");
+            player.sendMessage(
+                    "§6[Phi Lôi Thần] §cKhông tìm thấy vị trí an toàn cạnh kunai."
+            );
             return;
         }
 
@@ -146,76 +170,225 @@ public class HiraishinManager {
         destination.setPitch(player.getLocation().getPitch());
 
         playTeleportEffect(origin);
-        boolean success = player.teleport(destination, PlayerTeleportEvent.TeleportCause.PLUGIN);
 
-        if (success) {
-            player.setFallDistance(0.0F);
-            playTeleportEffect(destination);
+        boolean success = player.teleport(
+                destination,
+                PlayerTeleportEvent.TeleportCause.PLUGIN
+        );
+
+        if (!success) {
+            return;
         }
+
+        player.setFallDistance(0.0F);
+        playTeleportEffect(destination);
+
+        // Successful teleport consumes the selected mark and retrieves its kunai.
+        removeProjectile(selected);
+        marks.remove(selected);
+        saveMarks(player, marks);
+        giveKunaiBack(player);
+
+        player.sendMessage(
+                "§6[Phi Lôi Thần] §eDấu ấn đã được thu hồi. "
+                        + "§7Còn §f" + marks.size() + " §7dấu ấn."
+        );
     }
 
     public boolean hasMark(Player player) {
-        return player.getPersistentDataContainer().has(
-                markEntityKey,
-                PersistentDataType.STRING
-        );
+        return !loadMarks(player).isEmpty();
     }
 
-    private void removePreviousKunai(Player player) {
-        String oldId = player.getPersistentDataContainer().get(
-                markEntityKey,
-                PersistentDataType.STRING
-        );
+    private HiraishinMark selectMark(Player player, List<HiraishinMark> marks) {
+        Location eye = player.getEyeLocation();
+        Vector look = eye.getDirection().normalize();
 
-        if (oldId != null) {
-            try {
-                Entity oldEntity = Bukkit.getEntity(UUID.fromString(oldId));
-                if (oldEntity instanceof Trident) {
-                    oldEntity.remove();
-                }
-            } catch (IllegalArgumentException ignored) {
-                // The previous projectile may already have been unloaded or removed.
+        List<HiraishinMark> sameWorld = new ArrayList<>();
+
+        for (HiraishinMark mark : marks) {
+            Location location = getLiveMarkLocation(mark);
+            if (location == null || location.getWorld() == null) {
+                continue;
+            }
+
+            if (location.getWorld().equals(player.getWorld())) {
+                sameWorld.add(mark);
             }
         }
 
-        clearMark(player);
-    }
+        // First choice: the mark closest to the player's crosshair direction.
+        HiraishinMark directional = sameWorld.stream()
+                .filter(mark -> isInLookingDirection(eye, look, getLiveMarkLocation(mark)))
+                .min(Comparator
+                        .comparingDouble((HiraishinMark mark) ->
+                                look.angle(eye.toVector().subtract(getLiveMarkLocation(mark).toVector()).multiply(-1)))
+                        .thenComparingDouble(mark ->
+                                eye.distanceSquared(getLiveMarkLocation(mark))))
+                .orElse(null);
 
-    private void saveMark(Player player, UUID entityId, Location location) {
-        PersistentDataContainer data = player.getPersistentDataContainer();
-
-        data.set(markEntityKey, PersistentDataType.STRING, entityId.toString());
-        data.set(markWorldKey, PersistentDataType.STRING, location.getWorld().getUID().toString());
-        data.set(markXKey, PersistentDataType.DOUBLE, location.getX());
-        data.set(markYKey, PersistentDataType.DOUBLE, location.getY());
-        data.set(markZKey, PersistentDataType.DOUBLE, location.getZ());
-    }
-
-    private Location readStoredLocation(PersistentDataContainer data) {
-        String worldId = data.get(markWorldKey, PersistentDataType.STRING);
-        Double x = data.get(markXKey, PersistentDataType.DOUBLE);
-        Double y = data.get(markYKey, PersistentDataType.DOUBLE);
-        Double z = data.get(markZKey, PersistentDataType.DOUBLE);
-
-        if (worldId == null || x == null || y == null || z == null) {
-            return null;
+        if (directional != null) {
+            return directional;
         }
 
+        // If there is no mark inside the viewing cone, do not teleport somewhere
+        // random in the same world.
+        //
+        // For another world there is no physical "looking direction", so use the
+        // most recently created cross-world mark as the only sensible fallback.
+        return marks.get(marks.size() - 1);
+    }
+
+    private boolean isInLookingDirection(Location eye, Vector look, Location target) {
+        if (target == null || target.getWorld() == null
+                || !target.getWorld().equals(eye.getWorld())) {
+            return false;
+        }
+
+        Vector toTarget = target.toVector().subtract(eye.toVector());
+
+        if (toTarget.lengthSquared() < 0.01) {
+            return true;
+        }
+
+        double dot = look.dot(toTarget.normalize());
+
+        // About 50 degrees from the crosshair.
+        return dot >= 0.6428D;
+    }
+
+    private Location getLiveMarkLocation(HiraishinMark mark) {
         try {
-            World world = Bukkit.getWorld(UUID.fromString(worldId));
-            return world == null ? null : new Location(world, x, y, z);
+            Entity entity = Bukkit.getEntity(mark.entityId);
+
+            if (entity instanceof Trident trident && trident.isValid()) {
+                String ownerId = trident.getPersistentDataContainer().get(
+                        ownerKey,
+                        PersistentDataType.STRING
+                );
+
+                if (ownerId != null) {
+                    return trident.getLocation().clone();
+                }
+            }
         } catch (IllegalArgumentException ignored) {
-            return null;
+            // Use the stored location.
+        }
+
+        return mark.location == null ? null : mark.location.clone();
+    }
+
+    private void removeProjectile(HiraishinMark mark) {
+        try {
+            Entity entity = Bukkit.getEntity(mark.entityId);
+            if (entity != null) {
+                entity.remove();
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Projectile may already be unloaded.
         }
     }
 
-    private void clearMark(Player player) {
+    private List<HiraishinMark> loadMarks(Player player) {
+        String raw = player.getPersistentDataContainer().get(
+                marksKey,
+                PersistentDataType.STRING
+        );
+
+        List<HiraishinMark> marks = new ArrayList<>();
+
+        if (raw == null || raw.isBlank()) {
+            return marks;
+        }
+
+        for (String encoded : raw.split(MARK_SEPARATOR)) {
+            String[] fields = encoded.split(FIELD_SEPARATOR);
+
+            if (fields.length != 5) {
+                continue;
+            }
+
+            try {
+                UUID entityId = UUID.fromString(fields[0]);
+                UUID worldId = UUID.fromString(fields[1]);
+                double x = Double.parseDouble(fields[2]);
+                double y = Double.parseDouble(fields[3]);
+                double z = Double.parseDouble(fields[4]);
+
+                World world = Bukkit.getWorld(worldId);
+                if (world != null) {
+                    marks.add(new HiraishinMark(
+                            entityId,
+                            new Location(world, x, y, z)
+                    ));
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Ignore a malformed individual mark instead of losing all marks.
+            }
+        }
+
+        return marks;
+    }
+
+    private void saveMarks(Player player, List<HiraishinMark> marks) {
         PersistentDataContainer data = player.getPersistentDataContainer();
-        data.remove(markEntityKey);
-        data.remove(markWorldKey);
-        data.remove(markXKey);
-        data.remove(markYKey);
-        data.remove(markZKey);
+
+        if (marks.isEmpty()) {
+            data.remove(marksKey);
+            return;
+        }
+
+        StringBuilder builder = new StringBuilder();
+
+        for (HiraishinMark mark : marks) {
+            if (mark.location == null || mark.location.getWorld() == null) {
+                continue;
+            }
+
+            if (builder.length() > 0) {
+                builder.append(MARK_SEPARATOR);
+            }
+
+            builder.append(mark.entityId)
+                    .append(FIELD_SEPARATOR)
+                    .append(mark.location.getWorld().getUID())
+                    .append(FIELD_SEPARATOR)
+                    .append(mark.location.getX())
+                    .append(FIELD_SEPARATOR)
+                    .append(mark.location.getY())
+                    .append(FIELD_SEPARATOR)
+                    .append(mark.location.getZ());
+        }
+
+        if (builder.length() == 0) {
+            data.remove(marksKey);
+        } else {
+            data.set(marksKey, PersistentDataType.STRING, builder.toString());
+        }
+    }
+
+    private void giveKunaiBack(Player player) {
+        ItemStack item = HiraishinKunai.create(plugin);
+        var leftovers = player.getInventory().addItem(item);
+
+        leftovers.values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover)
+        );
+    }
+
+    private int countKunai(Player player) {
+        int count = 0;
+
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (isKunai(item)) {
+                count += item.getAmount();
+            }
+        }
+
+        if (isKunai(player.getInventory().getItemInOffHand())) {
+            count += player.getInventory().getItemInOffHand().getAmount();
+        }
+
+        return count;
     }
 
     private Location findSafeLocation(Location target, Player player) {
@@ -228,7 +401,6 @@ public class HiraishinManager {
         int baseY = target.getBlockY();
         int baseZ = target.getBlockZ();
 
-        // Prefer a solid floor with two passable blocks for the player's body.
         for (int radius = 0; radius <= 2; radius++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -263,8 +435,8 @@ public class HiraishinManager {
             }
         }
 
-        // A kunai can still be mid-air. Allow an air destination if the player's body fits.
         Location airCandidate = target.clone().add(0, 0.2, 0);
+
         if (airCandidate.getBlock().isPassable()
                 && airCandidate.clone().add(0, 1, 0).getBlock().isPassable()
                 && !airCandidate.getBlock().isLiquid()
@@ -277,13 +449,49 @@ public class HiraishinManager {
 
     private void playTeleportEffect(Location location) {
         World world = location.getWorld();
+
         if (world == null) {
             return;
         }
 
         Location center = location.clone().add(0, 0.9, 0);
-        world.spawnParticle(Particle.PORTAL, center, 45, 0.35, 0.65, 0.35, 0.12);
-        world.spawnParticle(Particle.END_ROD, center, 12, 0.25, 0.45, 0.25, 0.015);
-        world.playSound(location, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.35F);
+
+        world.spawnParticle(
+                Particle.PORTAL,
+                center,
+                45,
+                0.35,
+                0.65,
+                0.35,
+                0.12
+        );
+
+        world.spawnParticle(
+                Particle.END_ROD,
+                center,
+                12,
+                0.25,
+                0.45,
+                0.25,
+                0.015
+        );
+
+        world.playSound(
+                location,
+                Sound.ENTITY_ENDERMAN_TELEPORT,
+                0.8F,
+                1.35F
+        );
+    }
+
+    private static final class HiraishinMark {
+
+        private final UUID entityId;
+        private Location location;
+
+        private HiraishinMark(UUID entityId, Location location) {
+            this.entityId = entityId;
+            this.location = location;
+        }
     }
 }
