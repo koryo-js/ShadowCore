@@ -85,10 +85,6 @@ public class HiraishinManager {
         marks.add(mark);
         saveMarks(owner, marks);
 
-        owner.sendMessage(
-                "§6[Phi Lôi Thần] §eĐã tạo dấu ấn §f#" + marks.size()
-                        + " §e. Còn " + countKunai(owner) + " kunai."
-        );
     }
 
     public void updateMarkFromProjectile(Trident trident) {
@@ -124,16 +120,12 @@ public class HiraishinManager {
         List<HiraishinMark> marks = loadMarks(player);
 
         if (marks.isEmpty()) {
-            player.sendMessage("§6[Phi Lôi Thần] §cBạn chưa ném Phi Lôi Thần Kunai.");
             return;
         }
 
         HiraishinMark selected = selectMark(player, marks);
 
         if (selected == null) {
-            player.sendMessage(
-                    "§6[Phi Lôi Thần] §7Không có dấu ấn nào trong hướng bạn đang nhìn."
-            );
             return;
         }
 
@@ -142,7 +134,6 @@ public class HiraishinManager {
         if (markLocation == null || markLocation.getWorld() == null) {
             marks.remove(selected);
             saveMarks(player, marks);
-            player.sendMessage("§6[Phi Lôi Thần] §cDấu ấn không còn hợp lệ.");
             return;
         }
 
@@ -159,9 +150,6 @@ public class HiraishinManager {
         Location destination = findSafeLocation(markLocation, player);
 
         if (destination == null) {
-            player.sendMessage(
-                    "§6[Phi Lôi Thần] §cKhông tìm thấy vị trí an toàn cạnh kunai."
-            );
             return;
         }
 
@@ -189,10 +177,7 @@ public class HiraishinManager {
         saveMarks(player, marks);
         giveKunaiBack(player);
 
-        player.sendMessage(
-                "§6[Phi Lôi Thần] §eDấu ấn đã được thu hồi. "
-                        + "§7Còn §f" + marks.size() + " §7dấu ấn."
-        );
+        player.sendMessage("§6[Phi Lôi Thần] §eDịch chuyển thành công.");
     }
 
     public boolean hasMark(Player player) {
