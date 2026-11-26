@@ -49,8 +49,6 @@ public final class TimeZoneListener implements Listener {
                 activated ? Sound.BLOCK_BEACON_ACTIVATE : Sound.BLOCK_BEACON_DEACTIVATE,
                 0.7f, activated ? 1.4f : 0.8f);
         player.sendMessage(activated
-                ? ChatColor.AQUA + "Time Zone activated."
-                : ChatColor.GRAY + "Time Zone deactivated.");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

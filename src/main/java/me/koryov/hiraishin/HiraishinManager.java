@@ -184,8 +184,6 @@ public class HiraishinManager {
         marks.remove(selected);
         saveMarks(player, marks);
         giveKunaiBack(player);
-
-        player.sendMessage("§6[Phi Lôi Thần] §eDịch chuyển thành công.");
     }
 
     public boolean hasMark(Player player) {
