@@ -19,8 +19,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public final class ShadowCoreUpdater {
-    private static final String LATEST_RELEASE_PAGE =
-            "https://github.com/koryo-js/ShadowCore/releases/latest";
+    private static final String LATEST_RELEASE_API =
+            "https://api.github.com/repos/koryo-js/ShadowCore/releases/latest";
     private static final String USER_AGENT = "ShadowCore-Updater";
     private static final String UPDATE_FILE_NAME = "ShadowCore.jar";
     private static volatile boolean updateInProgress;
@@ -40,11 +40,12 @@ public final class ShadowCoreUpdater {
                         .followRedirects(HttpClient.Redirect.NORMAL)
                         .build();
 
-                // Use the public Releases webpage instead of the REST API.
-                // This avoids the unauthenticated API's shared 60-requests/hour limit.
-                HttpRequest releaseRequest = HttpRequest.newBuilder(URI.create(LATEST_RELEASE_PAGE))
+                // Read release metadata from the GitHub API. The latest-release HTML page
+                // may not contain asset download links in its initial response.
+                HttpRequest releaseRequest = HttpRequest.newBuilder(URI.create(LATEST_RELEASE_API))
                         .header("User-Agent", USER_AGENT)
-                        .header("Accept", "text/html")
+                        .header("Accept", "application/vnd.github+json")
+                        .header("X-GitHub-Api-Version", "2022-11-28")
                         .GET()
                         .build();
 
@@ -53,7 +54,7 @@ public final class ShadowCoreUpdater {
 
                 if (releaseResponse.statusCode() != 200) {
                     notifyResult(plugin, requester,
-                            "Không đọc được trang GitHub Releases (HTTP "
+                            "Không đọc được GitHub Releases API (HTTP "
                                     + releaseResponse.statusCode() + ").");
                     return;
                 }
@@ -127,26 +128,28 @@ public final class ShadowCoreUpdater {
         });
     }
 
-    private static ReleaseAsset findLatestAsset(String html) {
+    private static ReleaseAsset findLatestAsset(String json) {
+        String tag = find(json, "\\\"tag_name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+        if (tag == null) return null;
+
+        // Asset metadata is contained in the release JSON. Match the JAR name
+        // with its browser_download_url; do not depend on the Releases page HTML.
         Pattern assetPattern = Pattern.compile(
-                "href=\\"([^\\"]*/releases/download/([^/\\"]+)/([^/\\"]+\\.jar))",
+                "\\\"name\\\"\\s*:\\s*\\\"([^\\\"]+\\.jar)\\\""
+                        + "[\\s\\S]*?\\\"browser_download_url\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
                 Pattern.CASE_INSENSITIVE
         );
-        Matcher matcher = assetPattern.matcher(html);
+        Matcher matcher = assetPattern.matcher(json);
 
         while (matcher.find()) {
-            String fileName = matcher.group(3);
+            String fileName = matcher.group(1);
             if (!fileName.toLowerCase().startsWith("shadowcore")) continue;
 
-            String downloadUrl = matcher.group(1);
-            if (downloadUrl.startsWith("/")) {
-                downloadUrl = "https://github.com" + downloadUrl;
-            }
-
+            String downloadUrl = matcher.group(2).replace("\\\\/", "/");
             try {
-                return new ReleaseAsset(matcher.group(2), URI.create(downloadUrl));
+                return new ReleaseAsset(tag, URI.create(downloadUrl));
             } catch (IllegalArgumentException ignored) {
-                // Ignore malformed links and continue looking for a valid JAR.
+                // Ignore malformed asset URLs and continue looking.
             }
         }
 
