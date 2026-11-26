@@ -72,4 +72,17 @@ public final class PhoenixDeathListener implements Listener {
             new PhoenixRevivalTask(manager, player).begin();
         }, 1L);
     }
+    @EventHandler
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (player.getGameMode() == org.bukkit.GameMode.SURVIVAL
+                || player.getGameMode() == org.bukkit.GameMode.ADVENTURE) {
+            player.setInvulnerable(false);
+            player.setGravity(true);
+            if (player.getWalkSpeed() == 0.0F) {
+                player.setWalkSpeed(0.2F);
+            }
+        }
+    }
+
 }

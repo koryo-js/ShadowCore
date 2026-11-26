@@ -137,8 +137,9 @@ public final class PhoenixRevivalTask extends BukkitRunnable {
         if (!player.isOnline()) {
             return;
         }
-        player.setWalkSpeed(previousWalkSpeed);
-        player.setGravity(previousGravity);
-        player.setInvulnerable(previousInvulnerable);
+        player.setWalkSpeed(0.2F); // Tốc độ đi bộ chuẩn của Minecraft
+        player.setGravity(true);
+        player.setInvulnerable(false);
+        player.setNoDamageTicks(0);
     }
 }
