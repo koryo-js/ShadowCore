@@ -3,6 +3,8 @@ package me.koryov;
 import me.koryov.bomb.RickPrimeBombChat;
 import me.koryov.hiraishin.HiraishinListener;
 import me.koryov.hiraishin.HiraishinManager;
+import me.koryov.phoenix.PhoenixManager;
+import me.koryov.phoenix.PhoenixDeathListener;
 import me.koryov.time.TimeZoneManager;
 import me.koryov.time.TimeZoneListener;
 import me.koryov.forcefield.ForcefieldListener;
@@ -30,6 +32,7 @@ import me.koryov.portal.PortalSavedLocationDeleteGUI;
 public final class ShadowCorePlugin extends JavaPlugin {
 
     private HiraishinManager hiraishinManager;
+    private PhoenixManager phoenixManager;
     private TimeZoneManager timeZoneManager;
 
 
@@ -69,6 +72,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
         );
 
         hiraishinManager = new HiraishinManager(this);
+        phoenixManager = new PhoenixManager(this);
         timeZoneManager = new TimeZoneManager(this);
 
         getServer()
@@ -84,6 +88,10 @@ public final class ShadowCorePlugin extends JavaPlugin {
                         new HiraishinListener(hiraishinManager),
                         this
                 );
+
+        getServer().getPluginManager().registerEvents(
+                new PhoenixDeathListener(phoenixManager), this
+        );
 
         getServer().getPluginManager().registerEvents(
                 new TimeZoneListener(timeZoneManager), this
@@ -224,6 +232,10 @@ public final class ShadowCorePlugin extends JavaPlugin {
 
     public HiraishinManager getHiraishinManager() {
         return hiraishinManager;
+    }
+
+    public PhoenixManager getPhoenixManager() {
+        return phoenixManager;
     }
 
     /*
