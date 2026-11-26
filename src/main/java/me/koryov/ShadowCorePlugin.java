@@ -121,9 +121,6 @@ public final class ShadowCorePlugin extends JavaPlugin {
 
         hiraishinManager = new HiraishinManager(this);
         ShadowCoreUpdater.checkAsync(this);
-        getServer().getScheduler().runTaskTimerAsynchronously(
-                this, () -> ShadowCoreUpdater.checkAsync(this), 12000L, 12000L
-        );
         phoenixManager = new PhoenixManager(this);
         timeZoneManager = new TimeZoneManager(this);
 
