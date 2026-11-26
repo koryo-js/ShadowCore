@@ -111,14 +111,6 @@ public final class ShadowCorePlugin extends JavaPlugin {
     @Override
     public void onEnable() {
 
-        getLogger().info(
-                "PortalGun class = "
-                        + PortalGunListener.class
-                        .getProtectionDomain()
-                        .getCodeSource()
-                        .getLocation()
-        );
-
         hiraishinManager = new HiraishinManager(this);
         ShadowCoreUpdater.checkAsync(this);
         phoenixManager = new PhoenixManager(this);
@@ -254,10 +246,6 @@ public final class ShadowCorePlugin extends JavaPlugin {
                         new PortalSavedLocationChat(),
                         this
                 );
-
-        getLogger().info(
-                "PortalGunListener registered!"
-        );
 
         getLogger().info(
                 "ShadowCore enabled!"
