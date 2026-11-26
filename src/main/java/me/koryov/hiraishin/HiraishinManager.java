@@ -150,6 +150,14 @@ public class HiraishinManager {
         Location destination = findSafeLocation(markLocation, player);
 
         if (destination == null) {
+            // Recover a landed kunai if no safe teleport position exists.
+            if (isMarkOnGround(selected)) {
+                removeProjectile(selected);
+                marks.remove(selected);
+                saveMarks(player, marks);
+                giveKunaiBack(player);
+                player.sendMessage("§6[Phi Lôi Thần] §eKunai đã được thu hồi vì vị trí không an toàn.");
+            }
             return;
         }
 
@@ -374,6 +382,17 @@ public class HiraishinManager {
         }
 
         return count;
+    }
+
+    private boolean isMarkOnGround(HiraishinMark mark) {
+        try {
+            Entity entity = Bukkit.getEntity(mark.entityId);
+            return entity instanceof Trident trident
+                    && trident.isValid()
+                    && trident.isOnGround();
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
     private Location findSafeLocation(Location target, Player player) {
