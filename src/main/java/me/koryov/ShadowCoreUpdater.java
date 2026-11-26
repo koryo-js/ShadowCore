@@ -112,7 +112,7 @@ public final class ShadowCoreUpdater {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     zip.transferTo(output);
                     String pluginYml = output.toString(java.nio.charset.StandardCharsets.UTF_8);
-                    return find(pluginYml, "(?m)^version:\\s*['\\"]?([^'\\"\\r\\n]+)");
+                    return find(pluginYml, "(?m)^version:\\s*([^\\s#]+)");
                 }
             }
         }
