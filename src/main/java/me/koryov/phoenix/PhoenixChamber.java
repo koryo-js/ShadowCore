@@ -61,6 +61,34 @@ public final class PhoenixChamber {
         // Đổ đầy nước cột giữa (bật physics = true để tạo cột bong bóng)
         fillWater(spawn);
     }
+    /**
+     * Xóa toàn bộ khối của buồng hồi sinh (3x3x5) và dọn sạch nước xung quanh.
+     */
+    public static void destroy(Location spawn) {
+        World world = spawn.getWorld();
+        if (world == null) {
+            return;
+        }
+
+        int cx = spawn.getBlockX();
+        int cy = spawn.getBlockY();
+        int cz = spawn.getBlockZ();
+
+        // Dọn sạch nước bên trong và nước tràn bên ngoài trước
+        clearSpilledWater(spawn);
+        for (int y = 0; y <= 2; y++) {
+            set(world, cx, cy + y, cz, Material.AIR, false);
+        }
+
+        // Xóa toàn bộ khung buồng từ đáy (y = -1) lên đến nóc (y = 3)
+        for (int y = -1; y <= 3; y++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    set(world, cx + x, cy + y, cz + z, Material.AIR, false);
+                }
+            }
+        }
+    }
 
     public static void close(Location spawn) {
         World world = spawn.getWorld();

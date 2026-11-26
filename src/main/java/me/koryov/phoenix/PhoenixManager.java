@@ -60,12 +60,18 @@ public final class PhoenixManager {
     }
 
     public void removeChamber(Player player) {
+        Location chamber = getChamber(player);
+        if (chamber != null) {
+            PhoenixChamber.destroy(chamber);
+        }
+
         PersistentDataContainer data = player.getPersistentDataContainer();
         data.remove(worldKey);
         data.remove(xKey);
         data.remove(yKey);
         data.remove(zKey);
     }
+
 
     public Location getChamber(Player player) {
         PersistentDataContainer data = player.getPersistentDataContainer();
