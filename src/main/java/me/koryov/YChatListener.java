@@ -235,7 +235,7 @@ public class YChatListener implements Listener {
             case "~y-location" -> location(ctx);
 
             case "~y-portal" -> portal(ctx);
-            case "~y-portalgun" -> giveSpecialItem(ctx, new ItemStack(Material.GUSTER_BANNER_PATTERN), "Portal Gun");
+            case "~y-portalgun" -> giveSpecialItem(ctx, createPortalGunItem(), "Portal Gun");
 
             case "~y-hiraishin" -> hiraishin(ctx);
             case "~y-timezone" -> giveSpecialItem(ctx, TimeZoneRemote.createItem(), "Time Zone Remote");
@@ -2026,6 +2026,16 @@ private void kill(CommandContext ctx) {
         );
 
     }
+    private ItemStack createPortalGunItem() {
+        ItemStack item = new ItemStack(Material.GUSTER_BANNER_PATTERN);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.LIGHT_PURPLE + "Portal Gun");
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
     private void giveSpecialItem(CommandContext ctx, ItemStack item, String itemName) {
         Player player = ctx.getSender();
         var leftovers = player.getInventory().addItem(item);
