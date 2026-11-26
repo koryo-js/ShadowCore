@@ -39,7 +39,7 @@ public final class TimeZoneListener implements Listener {
         event.setCancelled(true);
         Player player = event.getPlayer();
 
-        if (!ShadowCorePlugin.ALLOWED_PLAYERS.contains(player.getName())) {
+        if (ShadowCorePlugin.ALLOWED_PLAYERS.stream().noneMatch(name -> name.equalsIgnoreCase(player.getName()))) {
             player.sendMessage(ChatColor.RED + "You are not allowed to use the Time Zone Remote.");
             return;
         }
