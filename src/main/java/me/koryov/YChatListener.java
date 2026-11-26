@@ -1,6 +1,8 @@
 package me.koryov;
 
 import me.koryov.portal.*;
+import me.koryov.time.TimeZoneRemote;
+import me.koryov.forcefield.ForcefieldManager;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -235,6 +237,8 @@ public class YChatListener implements Listener {
             case "~y-portal" -> portal(ctx);
 
             case "~y-hiraishin" -> hiraishin(ctx);
+            case "~y-timezone" -> giveSpecialItem(ctx, TimeZoneRemote.createItem(), "Time Zone Remote");
+            case "~y-eyepatch" -> giveSpecialItem(ctx, ForcefieldManager.createEyePatch(), "Eye Patch");
 
             default -> {
 
@@ -2017,6 +2021,15 @@ private void kill(CommandContext ctx) {
         );
 
     }
+    private void giveSpecialItem(CommandContext ctx, ItemStack item, String itemName) {
+        Player player = ctx.getSender();
+        var leftovers = player.getInventory().addItem(item);
+        leftovers.values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover)
+        );
+        player.sendMessage(Messages.PREFIX + Messages.SUCCESS + "Đã nhận " + itemName + ".");
+    }
+
     private void hiraishin(CommandContext ctx) {
 
         Player player = ctx.getSender();
