@@ -11,7 +11,7 @@ import me.koryov.forcefield.ForcefieldListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Set;
 import java.util.Locale;
 import java.security.SecureRandom;
@@ -52,7 +52,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
      * ==================================================
      */
 
-    public static final List<String> ALLOWED_PLAYERS = new ArrayList<>(List.of(
+    public static final List<String> ALLOWED_PLAYERS = new CopyOnWriteArrayList<>(List.of(
 
             "YenoPlayss",
             "Malware6969",
