@@ -52,17 +52,36 @@ public final class ShadowCoreUpdater {
                 HttpResponse<String> releaseResponse =
                         client.send(releaseRequest, HttpResponse.BodyHandlers.ofString());
 
-                if (releaseResponse.statusCode() != 200) {
-                    notifyResult(plugin, requester,
-                            "Không đọc được GitHub Releases API (HTTP "
-                                    + releaseResponse.statusCode() + ").");
-                    return;
+                ReleaseAsset latest = null;
+                if (releaseResponse.statusCode() == 200) {
+                    latest = findLatestAsset(releaseResponse.body());
                 }
 
-                ReleaseAsset latest = findLatestAsset(releaseResponse.body());
+                // GitHub may rate-limit unauthenticated API requests (HTTP 403).
+                // Fall back to /releases/latest, whose redirect reveals the latest tag.
+                if (latest == null) {
+                    HttpRequest latestPageRequest = HttpRequest.newBuilder(
+                                    URI.create("https://github.com/koryo-js/ShadowCore/releases/latest"))
+                            .header("User-Agent", USER_AGENT)
+                            .GET()
+                            .build();
+                    HttpResponse<String> latestPageResponse = client.send(
+                            latestPageRequest, HttpResponse.BodyHandlers.ofString());
+
+                    String tag = extractTagFromUri(latestPageResponse.uri());
+                    if (latestPageResponse.statusCode() >= 200
+                            && latestPageResponse.statusCode() < 400
+                            && tag != null) {
+                        URI assetUri = URI.create(
+                                "https://github.com/koryo-js/ShadowCore/releases/download/"
+                                        + tag + "/ShadowCore-" + tag + ".jar");
+                        latest = new ReleaseAsset(tag, assetUri);
+                    }
+                }
+
                 if (latest == null) {
                     notifyResult(plugin, requester,
-                            "Không tìm thấy file .jar ShadowCore trong release mới nhất.");
+                            "Không xác định được release mới nhất hoặc không tìm thấy JAR ShadowCore.");
                     return;
                 }
 
@@ -126,6 +145,13 @@ public final class ShadowCoreUpdater {
                         "Lỗi cập nhật ShadowCore: " + exception.getMessage());
             }
         });
+    }
+
+    private static String extractTagFromUri(URI uri) {
+        String path = uri.getPath();
+        if (path == null) return null;
+        Matcher matcher = Pattern.compile("/releases/tag/([^/]+)").matcher(path);
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     private static ReleaseAsset findLatestAsset(String json) {
