@@ -290,6 +290,7 @@ public class YChatListener implements Listener {
         player.sendMessage(
                 ChatColor.GRAY
                         + "~y-vanish  ~y-effect  ~y-xp  ~y-hiraishin"
+                + ChatColor.GRAY + "~y-timezone  ~y-eyepatch"
         );
 
         player.sendMessage(
