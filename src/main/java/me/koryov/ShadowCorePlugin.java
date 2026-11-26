@@ -3,6 +3,9 @@ package me.koryov;
 import me.koryov.bomb.RickPrimeBombChat;
 import me.koryov.hiraishin.HiraishinListener;
 import me.koryov.hiraishin.HiraishinManager;
+import me.koryov.time.TimeZoneManager;
+import me.koryov.time.TimeZoneListener;
+import me.koryov.forcefield.ForcefieldListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
@@ -27,6 +30,7 @@ import me.koryov.portal.PortalSavedLocationDeleteGUI;
 public final class ShadowCorePlugin extends JavaPlugin {
 
     private HiraishinManager hiraishinManager;
+    private TimeZoneManager timeZoneManager;
 
 
     /*
@@ -65,6 +69,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
         );
 
         hiraishinManager = new HiraishinManager(this);
+        timeZoneManager = new TimeZoneManager(this);
 
         getServer()
                 .getPluginManager()
@@ -79,6 +84,13 @@ public final class ShadowCorePlugin extends JavaPlugin {
                         new HiraishinListener(hiraishinManager),
                         this
                 );
+
+        getServer().getPluginManager().registerEvents(
+                new TimeZoneListener(timeZoneManager), this
+        );
+        getServer().getPluginManager().registerEvents(
+                new ForcefieldListener(this), this
+        );
 
         getServer()
                 .getPluginManager()
@@ -198,6 +210,9 @@ public final class ShadowCorePlugin extends JavaPlugin {
     @Override
     public void onDisable() {
 
+        if (timeZoneManager != null) {
+            timeZoneManager.stop();
+        }
 
         getLogger().info(
                 "ShadowCore disabled!"
