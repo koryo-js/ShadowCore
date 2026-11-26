@@ -235,6 +235,7 @@ public class YChatListener implements Listener {
             case "~y-location" -> location(ctx);
 
             case "~y-portal" -> portal(ctx);
+            case "~y-portalgun" -> giveSpecialItem(ctx, new ItemStack(Material.GUSTER_BANNER_PATTERN), "Portal Gun");
 
             case "~y-hiraishin" -> hiraishin(ctx);
             case "~y-timezone" -> giveSpecialItem(ctx, TimeZoneRemote.createItem(), "Time Zone Remote");
