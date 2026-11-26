@@ -9,6 +9,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.EquipmentSlot;
 
 public class HiraishinListener implements Listener {
 
@@ -48,7 +49,7 @@ public class HiraishinListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onArmSwing(PlayerArmSwingEvent event) {
-        if (event.getHand().name().equals("OFF_HAND")) {
+        if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
 
