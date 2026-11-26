@@ -10,6 +10,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,6 +66,23 @@ public final class ShadowCoreUpdater {
                     return;
                 }
 
+                String packagedVersion = readPackagedVersion(download.body());
+                if (packagedVersion == null || compareVersions(stripV(packagedVersion), stripV(tag)) != 0) {
+                    updateInProgress = false;
+                    plugin.getLogger().warning("ShadowCore updater: Release tag " + tag
+                            + " không khớp version trong plugin.yml của JAR ("
+                            + (packagedVersion == null ? "không đọc được" : packagedVersion)
+                            + "). Bỏ qua cập nhật để tránh restart loop.");
+                    notifyResult(plugin, requester, "Bản cập nhật GitHub có version không khớp; đã bỏ qua để tránh restart loop.");
+                    return;
+                }
+
+                if (compareVersions(stripV(packagedVersion), stripV(current)) <= 0) {
+                    updateInProgress = false;
+                    notifyResult(plugin, requester, "JAR GitHub không mới hơn bản đang chạy; đã bỏ qua cập nhật.");
+                    return;
+                }
+
                 Path updateDir = plugin.getDataFolder().toPath().getParent().resolve("update");
                 Files.createDirectories(updateDir);
                 Files.write(updateDir.resolve(ASSET_NAME), download.body());
@@ -81,6 +102,21 @@ public final class ShadowCoreUpdater {
         if (requester != null) Bukkit.getScheduler().runTask(plugin, () -> {
             if (requester.isOnline()) requester.sendMessage("§6[ShadowCore] §e" + message);
         });
+    }
+
+    private static String readPackagedVersion(byte[] jarBytes) throws Exception {
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(jarBytes))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if ("plugin.yml".equals(entry.getName())) {
+                    ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    zip.transferTo(output);
+                    String pluginYml = output.toString(java.nio.charset.StandardCharsets.UTF_8);
+                    return find(pluginYml, "(?m)^version:\\s*['\\"]?([^'\\"\\r\\n]+)");
+                }
+            }
+        }
+        return null;
     }
 
     private static String find(String input, String regex) {
