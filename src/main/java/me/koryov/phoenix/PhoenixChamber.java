@@ -1,16 +1,21 @@
 package me.koryov.phoenix;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.plugin.Plugin;
 
 /**
- * Builds and animates a compact physical resurrection chamber.
- * The chamber is a 5x5x5 cyan-glass capsule with a water-filled interior,
- * a soul-sand floor and a beacon cap.
+ * Buồng hồi sinh dạng trụ đứng 3x3x5 với cột bong bóng đẩy lên,
+ * hiệu ứng vỡ kính và nước tràn ra khi hoàn tất.
  */
 public final class PhoenixChamber {
+
+    private static final Material GLASS_TYPE = Material.LIGHT_BLUE_STAINED_GLASS;
 
     private PhoenixChamber() {
     }
@@ -25,34 +30,35 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Floor: quartz frame with a soul-sand revival platform.
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                set(world, cx + x, cy - 1, cz + z,
-                        Math.abs(x) == 2 || Math.abs(z) == 2
-                                ? Material.QUARTZ_BLOCK : Material.SOUL_SAND);
+        // Đáy 3x3: Viền khối sắt, tâm là cát linh hồn tạo cột bong bóng
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                Material floorMat = (x == 0 && z == 0) ? Material.SOUL_SAND : Material.IRON_BLOCK;
+                set(world, cx + x, cy - 1, cz + z, floorMat, true);
             }
         }
 
-        // Cyan-glass walls and a sealed front panel.
+        // Tường kính bao quanh 3x3 cao 3 block (chừa lõi 1x1 ở giữa)
         for (int y = 0; y <= 2; y++) {
-            for (int offset = -2; offset <= 2; offset++) {
-                set(world, cx - 2, cy + y, cz + offset, Material.CYAN_STAINED_GLASS);
-                set(world, cx + 2, cy + y, cz + offset, Material.CYAN_STAINED_GLASS);
-                set(world, cx + offset, cy + y, cz - 2, Material.CYAN_STAINED_GLASS);
-                set(world, cx + offset, cy + y, cz + 2, Material.CYAN_STAINED_GLASS);
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    if (x == 0 && z == 0) {
+                        continue;
+                    }
+                    set(world, cx + x, cy + y, cz + z, GLASS_TYPE, false);
+                }
             }
         }
 
-        // Roof with a beacon core.
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                set(world, cx + x, cy + 3, cz + z,
-                        (x == 0 && z == 0) ? Material.BEACON : Material.IRON_BLOCK);
+        // Nóc 3x3: Khối sắt với Beacon ở chính giữa
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                Material roofMat = (x == 0 && z == 0) ? Material.BEACON : Material.IRON_BLOCK;
+                set(world, cx + x, cy + 3, cz + z, roofMat, true);
             }
         }
 
-        // Water fills the sealed capsule while the revival sequence runs.
+        // Đổ đầy nước cột giữa (bật physics = true để tạo cột bong bóng)
         fillWater(spawn);
     }
 
@@ -66,15 +72,18 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
+        // Chỉ đóng lại cột 1x3 chính giữa ở mặt trước (z + 1)
         for (int y = 0; y <= 2; y++) {
-            for (int x = -1; x <= 1; x++) {
-                set(world, cx + x, cy + y, cz + 2, Material.CYAN_STAINED_GLASS);
-            }
+            set(world, cx, cy + y, cz + 1, GLASS_TYPE, false);
         }
+        clearSpilledWater(spawn);
         fillWater(spawn);
     }
 
-    public static void open(Location spawn) {
+    /**
+     * Chỉ phá vỡ cột kính 1x3 chính giữa mặt trước để nước tràn qua khe cửa.
+     */
+    public static void shatterAndSpill(Location spawn, Plugin plugin) {
         World world = spawn.getWorld();
         if (world == null) {
             return;
@@ -84,27 +93,22 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Drain the interior before opening the front.
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                for (int y = 0; y <= 1; y++) {
-                    set(world, cx + x, cy + y, cz + z, Material.AIR);
-                }
-            }
-        }
+        // Âm thanh vỡ kính + xả áp lực nước
+        Location frontCenter = spawn.clone().add(0.0, 1.0, 1.0);
+        world.playSound(frontCenter, Sound.BLOCK_GLASS_BREAK, 1.6F, 0.85F);
+        world.playSound(frontCenter, Sound.ENTITY_PLAYER_SPLASH_HIGH_SPEED, 1.2F, 1.0F);
 
+        // Chỉ phá 3 block kính ngay chính giữa (x = 0, z + 1)
         for (int y = 0; y <= 2; y++) {
-            for (int x = -1; x <= 1; x++) {
-                set(world, cx + x, cy + y, cz + 2, Material.AIR);
+            Block block = world.getBlockAt(cx, cy + y, cz + 1);
+            if (block.getType() == GLASS_TYPE) {
+                world.playEffect(block.getLocation(), Effect.STEP_SOUND, GLASS_TYPE);
+                block.setType(Material.AIR, true);
             }
         }
-    }
 
-    public static Location getExit(Location spawn) {
-        Location exit = spawn.clone().add(0.0, 0.0, 3.5);
-        exit.setYaw(0.0F);
-        exit.setPitch(0.0F);
-        return exit;
+        // Sau 2.5 giây (50 ticks), tự dọn nước tràn phía ngoài
+        Bukkit.getScheduler().runTaskLater(plugin, () -> clearSpilledWater(spawn), 50L);
     }
 
     private static void fillWater(Location spawn) {
@@ -117,17 +121,37 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                for (int y = 0; y <= 1; y++) {
-                    set(world, cx + x, cy + y, cz + z, Material.WATER);
+        // Đặt nước nguồn từ y = 0 đến y = 2 với physics = true để kích hoạt bọt khí Soul Sand
+        for (int y = 0; y <= 2; y++) {
+            set(world, cx, cy + y, cz, Material.WATER, true);
+        }
+    }
+
+    private static void clearSpilledWater(Location spawn) {
+        World world = spawn.getWorld();
+        if (world == null) {
+            return;
+        }
+
+        int cx = spawn.getBlockX();
+        int cy = spawn.getBlockY();
+        int cz = spawn.getBlockZ();
+
+        // Dọn nước chảy tràn ở khu vực phía trước buồng (z từ +1 đến +8)
+        for (int x = -6; x <= 6; x++) {
+            for (int z = 1; z <= 8; z++) {
+                for (int y = -1; y <= 2; y++) {
+                    Block block = world.getBlockAt(cx + x, cy + y, cz + z);
+                    if (block.getType() == Material.WATER) {
+                        block.setType(Material.AIR, false);
+                    }
                 }
             }
         }
     }
 
-    private static void set(World world, int x, int y, int z, Material material) {
+    private static void set(World world, int x, int y, int z, Material material, boolean applyPhysics) {
         Block block = world.getBlockAt(x, y, z);
-        block.setType(material, false);
+        block.setType(material, applyPhysics);
     }
 }

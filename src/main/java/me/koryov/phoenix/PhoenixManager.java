@@ -108,12 +108,12 @@ public final class PhoenixManager {
             return;
         }
 
-        PhoenixChamber.open(chamber);
-        Location exit = PhoenixChamber.getExit(chamber);
-        player.teleport(exit);
+        PhoenixChamber.shatterAndSpill(chamber, plugin);
     }
 
     public JavaPlugin getPlugin() {
         return plugin;
     }
 }
+
+
