@@ -2,12 +2,15 @@ package me.koryov.hiraishin;
 
 import com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent;
 import io.papermc.paper.event.player.PlayerArmSwingEvent;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 public class HiraishinListener implements Listener {
 
@@ -27,9 +30,13 @@ public class HiraishinListener implements Listener {
             return;
         }
 
-        // The kunai is reusable; the thrown trident remains as the spatial mark.
+        Player player = event.getPlayer();
+
+        // We handle the consumption ourselves so every thrown kunai costs exactly one item.
         event.setShouldConsume(false);
-        manager.registerThrownKunai(event.getPlayer(), trident);
+        consumeOneKunai(player, event.getHand());
+
+        manager.registerThrownKunai(player, trident);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -45,14 +52,50 @@ public class HiraishinListener implements Listener {
             return;
         }
 
-        if (!event.getPlayer().isSneaking()) {
+        Player player = event.getPlayer();
+
+        if (!player.isSneaking()) {
             return;
         }
 
-        if (!manager.hasMark(event.getPlayer())) {
+        if (!manager.hasMark(player)) {
             return;
         }
 
-        manager.teleportToKunai(event.getPlayer());
+        manager.teleportToKunai(player);
+    }
+
+    private void consumeOneKunai(Player player, EquipmentSlot hand) {
+        ItemStack item;
+
+        if (hand == EquipmentSlot.OFF_HAND) {
+            item = player.getInventory().getItemInOffHand();
+
+            if (manager.isKunai(item)) {
+                if (item.getAmount() <= 1) {
+                    player.getInventory().setItemInOffHand(null);
+                } else {
+                    item.setAmount(item.getAmount() - 1);
+                }
+            }
+
+            return;
+        }
+
+        item = player.getInventory().getItemInMainHand();
+
+        if (manager.isKunai(item)) {
+            if (item.getAmount() <= 1) {
+                player.getInventory().setItemInMainHand(null);
+            } else {
+                item.setAmount(item.getAmount() - 1);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        // Marks are stored in the player's PersistentDataContainer,
+        // so they survive logout/restart. Nothing needs to be cleared here.
     }
 }
