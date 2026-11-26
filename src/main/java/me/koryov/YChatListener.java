@@ -384,7 +384,12 @@ public class YChatListener implements Listener {
 
         player.sendMessage(
                 ChatColor.GRAY
-                        + "~y-strike"
+                        + "~y-strike  ~y-check  ~y-access on/off <player>"
+        );
+
+        player.sendMessage(
+                ChatColor.GRAY
+                        + "~y-code (tạo mã)  ~shadowcode <code>  ~y-update"
         );
 
         player.sendMessage(
