@@ -73,7 +73,8 @@ public final class TimeZoneManager {
             double radiusSquared = RADIUS * RADIUS;
 
             for (Entity entity : owner.getWorld().getNearbyEntities(center, RADIUS, RADIUS, RADIUS)) {
-                if (entity == owner || entity instanceof Player player && player.getUniqueId().equals(ownerId)) {
+                if (entity == owner || entity instanceof Player player
+                        && activeOwners.contains(player.getUniqueId())) {
                     continue;
                 }
                 if (entity.getLocation().distanceSquared(center) > radiusSquared) {
