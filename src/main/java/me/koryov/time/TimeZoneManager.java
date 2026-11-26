@@ -32,17 +32,20 @@ public final class TimeZoneManager {
         UUID id = owner.getUniqueId();
 
         if (activeOwners.remove(id)) {
-            restoreAll();
-            if (activeOwners.isEmpty() && task != null) {
-                task.cancel();
-                task = null;
+            if (activeOwners.isEmpty()) {
+                restoreAll();
+                if (task != null) {
+                    task.cancel();
+                    task = null;
+                }
             }
             return false;
         }
 
         activeOwners.add(id);
         if (task == null) {
-            task = new TimeZoneTask(this).runTaskTimer(plugin, 1L, 1L);
+            task = new TimeZoneTask(this);
+            task.runTaskTimer(plugin, 1L, 1L);
         }
         return true;
     }
