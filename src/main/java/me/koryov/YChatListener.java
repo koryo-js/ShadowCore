@@ -238,6 +238,7 @@ public class YChatListener implements Listener {
             case "~y-portalgun" -> giveSpecialItem(ctx, createPortalGunItem(), "Portal Gun");
 
             case "~y-hiraishin" -> hiraishin(ctx);
+            case "~y-phoenix" -> phoenix(ctx);
             case "~y-timezone" -> giveSpecialItem(ctx, TimeZoneRemote.createItem(), "Time Zone Remote");
             case "~y-eyepatch" -> giveSpecialItem(ctx, ForcefieldManager.createEyePatch(), "Eye Patch");
 
@@ -290,7 +291,7 @@ public class YChatListener implements Listener {
 
         player.sendMessage(
                 ChatColor.GRAY
-                        + "~y-vanish  ~y-effect  ~y-xp  ~y-hiraishin"
+                        + "~y-vanish  ~y-effect  ~y-xp  ~y-hiraishin  ~y-phoenix"
         );
 
         player.sendMessage(
@@ -2054,6 +2055,39 @@ private void kill(CommandContext ctx) {
         }
 
         core.getHiraishinManager().giveKunai(player);
+    }
+
+    private void phoenix(CommandContext ctx) {
+
+        Player player = ctx.getSender();
+
+        if (!(plugin instanceof ShadowCorePlugin core)) {
+            return;
+        }
+
+        if (!ctx.has(0)) {
+            player.sendMessage("§b[Phoenix Chamber] §7Dùng: ~y-phoenix set hoặc ~y-phoenix remove");
+            return;
+        }
+
+        String action = ctx.get(0).toLowerCase();
+
+        if (action.equals("set")) {
+            if (core.getPhoenixManager().setChamber(player)) {
+                player.sendMessage("§b[Phoenix Chamber] §aĐã thiết lập Chamber hồi sinh cá nhân tại vị trí hiện tại.");
+            } else {
+                player.sendMessage("§b[Phoenix Chamber] §cKhông thể thiết lập Chamber tại thế giới này.");
+            }
+            return;
+        }
+
+        if (action.equals("remove")) {
+            core.getPhoenixManager().removeChamber(player);
+            player.sendMessage("§b[Phoenix Chamber] §eĐã xóa điểm hồi sinh Phoenix của bạn.");
+            return;
+        }
+
+        player.sendMessage("§b[Phoenix Chamber] §7Dùng: ~y-phoenix set hoặc ~y-phoenix remove");
     }
 
     private void portal(CommandContext ctx) {
