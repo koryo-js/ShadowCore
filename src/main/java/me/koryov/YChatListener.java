@@ -354,7 +354,7 @@ public class YChatListener implements Listener {
 
         player.sendMessage(
                 ChatColor.GRAY
-                        + "~y-strike"
+                        + "~y-strike ~y-hiraishin"
         );
 
         player.sendMessage(
