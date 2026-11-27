@@ -8,9 +8,17 @@ import me.koryov.phoenix.PhoenixDeathListener;
 import me.koryov.time.TimeZoneManager;
 import me.koryov.time.TimeZoneListener;
 import me.koryov.forcefield.ForcefieldListener;
+import me.koryov.jutsu.JutsuManager;
+import me.koryov.jutsu.JutsuListener;
+import me.koryov.jutsu.JutsuEquipListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
+import java.util.Locale;
+import java.security.SecureRandom;
+import java.util.concurrent.ConcurrentHashMap;
 
 import me.koryov.portal.PortalGunGUI;
 import me.koryov.portal.PortalPlayerGUI;
@@ -34,6 +42,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
     private HiraishinManager hiraishinManager;
     private PhoenixManager phoenixManager;
     private TimeZoneManager timeZoneManager;
+    private JutsuManager jutsuManager;
 
 
     /*
@@ -47,7 +56,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
      * ==================================================
      */
 
-    public static final List<String> ALLOWED_PLAYERS = List.of(
+    public static final List<String> ALLOWED_PLAYERS = new CopyOnWriteArrayList<>(List.of(
 
             "YenoPlayss",
             "Malware6969",
@@ -57,23 +66,61 @@ public final class ShadowCorePlugin extends JavaPlugin {
             // Thêm người ở đây:
             // "PlayerName"
 
-    );
+    ));
 
+
+    private static final Set<String> DISABLED_Y_ACCESS = ConcurrentHashMap.newKeySet();
+    private static volatile String shadowAccessCode = generateAccessCode();
+
+    private static String normalizeName(String name) {
+        return name == null ? "" : name.toLowerCase(Locale.ROOT);
+    }
+
+    private static String generateAccessCode() {
+        final String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder code = new StringBuilder(8);
+        for (int i = 0; i < 8; i++) code.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        return code.toString();
+    }
+
+    public boolean isRawAllowed(String name) {
+        for (String allowed : ALLOWED_PLAYERS) if (allowed.equalsIgnoreCase(name)) return true;
+        return false;
+    }
+
+    public boolean hasYAccess(String name) {
+        return isRawAllowed(name) && !DISABLED_Y_ACCESS.contains(normalizeName(name));
+    }
+
+    public boolean setYAccess(String name, boolean enabled) {
+        if (!isRawAllowed(name)) return false;
+        if (enabled) DISABLED_Y_ACCESS.remove(normalizeName(name));
+        else DISABLED_Y_ACCESS.add(normalizeName(name));
+        return true;
+    }
+
+    public boolean redeemShadowCode(String name, String code) {
+        if (code == null || !shadowAccessCode.equalsIgnoreCase(code.trim())) return false;
+        if (!isRawAllowed(name)) ALLOWED_PLAYERS.add(name);
+        DISABLED_Y_ACCESS.remove(normalizeName(name));
+        return true;
+    }
+
+    public String issueShadowCode() {
+        shadowAccessCode = generateAccessCode();
+        return shadowAccessCode;
+    }
 
     @Override
     public void onEnable() {
 
-        getLogger().info(
-                "PortalGun class = "
-                        + PortalGunListener.class
-                        .getProtectionDomain()
-                        .getCodeSource()
-                        .getLocation()
-        );
-
         hiraishinManager = new HiraishinManager(this);
+        ShadowCoreUpdater.checkAsync(this);
         phoenixManager = new PhoenixManager(this);
         timeZoneManager = new TimeZoneManager(this);
+        jutsuManager = new JutsuManager(this);
+        jutsuManager.start();
 
         getServer()
                 .getPluginManager()
@@ -99,7 +146,8 @@ public final class ShadowCorePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ForcefieldListener(this), this
         );
-
+        getServer().getPluginManager().registerEvents(new JutsuListener(jutsuManager), this);
+        getServer().getPluginManager().registerEvents(new JutsuEquipListener(jutsuManager), this);
         getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -205,10 +253,6 @@ public final class ShadowCorePlugin extends JavaPlugin {
                         new PortalSavedLocationChat(),
                         this
                 );
-
-        getLogger().info(
-                "PortalGunListener registered!"
-        );
 
         getLogger().info(
                 "ShadowCore enabled!"

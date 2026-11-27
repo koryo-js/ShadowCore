@@ -1,5 +1,5 @@
 name: ShadowCore
-version: 1.0
+version: ${project.version}
 main: me.koryov.ShadowCorePlugin
 api-version: '1.21'
 author: Koryo
