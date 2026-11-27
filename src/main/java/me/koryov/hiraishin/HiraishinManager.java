@@ -54,7 +54,7 @@ public class HiraishinManager {
         leftovers.values().forEach(item ->
                 player.getWorld().dropItemNaturally(player.getLocation(), item)
         );
-        player.sendMessage("§6[ShadowCore] §eBạn đã nhận Phi Lôi Thần Kunai.");
+        player.sendActionBar("§6Phi Lôi Thần §7— đã nhận Kunai");
     }
 
     public boolean isKunai(ItemStack item) {
@@ -156,7 +156,7 @@ public class HiraishinManager {
                 marks.remove(selected);
                 saveMarks(player, marks);
                 giveKunaiBack(player);
-                player.sendMessage("§6[Phi Lôi Thần] §eKunai đã được thu hồi vì vị trí không an toàn.");
+                player.sendActionBar("§6Phi Lôi Thần §7— Kunai đã được thu hồi");
             }
             return;
         }
@@ -185,7 +185,7 @@ public class HiraishinManager {
         saveMarks(player, marks);
         giveKunaiBack(player);
 
-        player.sendMessage("§6[Phi Lôi Thần] §eDịch chuyển thành công.");
+        player.sendActionBar("§6Phi Lôi Thần §7— dịch chuyển thành công");
     }
 
     public boolean hasMark(Player player) {
