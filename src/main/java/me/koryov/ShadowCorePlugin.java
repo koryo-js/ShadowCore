@@ -117,6 +117,7 @@ public final class ShadowCorePlugin extends JavaPlugin {
 
         hiraishinManager = new HiraishinManager(this);
         ShadowCoreUpdater.checkAsync(this);
+        ShadowCoreUpdater.startAutoChecks(this);
         phoenixManager = new PhoenixManager(this);
         timeZoneManager = new TimeZoneManager(this);
         jutsuManager = new JutsuManager(this);
