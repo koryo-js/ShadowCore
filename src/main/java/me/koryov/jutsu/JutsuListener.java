@@ -1,26 +1,17 @@
 package me.koryov.jutsu;
 
-import org.bukkit.*;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.entity.*;
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.util.Vector;
-
-import java.util.*;
+import org.bukkit.entity.Player;
 
 public final class JutsuListener implements Listener {
     private final JutsuManager manager;
@@ -31,23 +22,27 @@ public final class JutsuListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_AIR) return;
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
         Player player = event.getPlayer();
 
-        if (player.isSneaking() && JutsuItems.isChestplate(manager.plugin, player.getInventory().getChestplate())) {
-            event.setCancelled(true);
-            manager.castRasengan(player);
-            return;
-        }
-
+        // Pattern input takes priority so it cannot accidentally cast Rasengan.
         if (JutsuItems.isPattern(manager.plugin, player.getInventory().getItemInMainHand())) {
             event.setCancelled(true);
-
             if (player.isSneaking()) {
-                manager.teleportJikukan(player);
+                manager.placeJikukan(player);
             } else {
                 manager.activateJikukan(player);
             }
+            return;
+        }
+
+        if (player.isSneaking()
+                && JutsuItems.isChestplate(manager.plugin, player.getInventory().getChestplate())) {
+            event.setCancelled(true);
+            manager.castRasengan(player);
         }
     }
 
