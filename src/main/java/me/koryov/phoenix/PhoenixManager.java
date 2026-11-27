@@ -105,7 +105,7 @@ public final class PhoenixManager {
     public void prepare(Player player) {
         Location chamber = getChamber(player);
         if (chamber != null) {
-            PhoenixChamber.close(chamber);
+            PhoenixChamber.rebuild(chamber);
         }
     }
 

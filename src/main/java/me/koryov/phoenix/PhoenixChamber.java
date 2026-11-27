@@ -62,6 +62,11 @@ public final class PhoenixChamber {
         fillWater(spawn);
     }
 
+    public static void rebuild(Location spawn) {
+        clearSpilledWater(spawn);
+        build(spawn);
+    }
+
     public static void close(Location spawn) {
         World world = spawn.getWorld();
         if (world == null) {
