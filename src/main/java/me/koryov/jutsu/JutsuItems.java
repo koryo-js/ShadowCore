@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class JutsuItems {
     public static final String CHEST_NAME = "§9Shinobi Chestplate";
     public static final String PATTERN_NAME = "§5Jikūkan Pattern";
+    public static final String HOKAGE_HAT_NAME = "§6Hokage Hat";
 
     private JutsuItems() {}
 
@@ -24,6 +25,27 @@ public final class JutsuItems {
         );
         item.setItemMeta(meta);
         return item;
+    }
+
+    public static ItemStack createHokageHat(JavaPlugin plugin) {
+        ItemStack item = new ItemStack(Material.LEATHER_HELMET);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(HOKAGE_HAT_NAME);
+        meta.setUnbreakable(true);
+        meta.setLore(java.util.List.of("§7Mũ Hokage — mở khóa KCM khi mặc cùng Shinobi Chestplate."));
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey(plugin, "hokage_hat"),
+                PersistentDataType.BYTE, (byte) 1
+        );
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isHokageHat(JavaPlugin plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.LEATHER_HELMET || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(
+                new NamespacedKey(plugin, "hokage_hat"), PersistentDataType.BYTE
+        );
     }
 
     public static ItemStack createPattern(JavaPlugin plugin) {
