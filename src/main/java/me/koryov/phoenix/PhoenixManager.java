@@ -74,7 +74,6 @@ public final class PhoenixManager {
         data.remove(zKey);
     }
 
-
     public Location getChamber(Player player) {
         PersistentDataContainer data = player.getPersistentDataContainer();
         String worldId = data.get(worldKey, PersistentDataType.STRING);
@@ -123,5 +122,3 @@ public final class PhoenixManager {
         return plugin;
     }
 }
-
-
