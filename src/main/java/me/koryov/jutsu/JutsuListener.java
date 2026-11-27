@@ -42,7 +42,12 @@ public final class JutsuListener implements Listener {
 
         if (JutsuItems.isPattern(manager.plugin, player.getInventory().getItemInMainHand())) {
             event.setCancelled(true);
-            manager.activateJikukan(player);
+
+            if (player.isSneaking()) {
+                manager.teleportJikukan(player);
+            } else {
+                manager.activateJikukan(player);
+            }
         }
     }
 
