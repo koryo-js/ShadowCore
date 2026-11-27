@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -42,6 +43,11 @@ public final class JutsuListener implements Listener {
             event.setCancelled(true);
             manager.castRasengan(player);
         }
+    }
+
+    @EventHandler
+    public void onAttackEntitySpawn(EntitySpawnEvent event) {
+        manager.trackAttackEntity(event.getEntity());
     }
 
     @EventHandler
