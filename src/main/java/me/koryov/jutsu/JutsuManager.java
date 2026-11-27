@@ -1,6 +1,5 @@
 package me.koryov.jutsu;
 
-import me.koryov.hiraishin.HiraishinManager;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -21,7 +20,6 @@ public final class JutsuManager {
     private final UUID kcmSpeedUuid = UUID.fromString("7f8bb2b5-9c2f-4a25-a2b4-2d7f7e2a4101");
     private final Set<UUID> activeJikukan = new HashSet<>();
     private final Map<UUID, Location> lastProjectileLocations = new HashMap<>();
-    private final HiraishinManager hiraishinManager;
     private final Set<UUID> activeKcm = new HashSet<>();
     private final Map<UUID, EnumSet<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
 
@@ -30,7 +28,6 @@ public final class JutsuManager {
     public JutsuManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.jikukanKey = new NamespacedKey(plugin, "jikukan_anchor");
-        this.hiraishinManager = new HiraishinManager(plugin);
     }
 
     public void start() {
