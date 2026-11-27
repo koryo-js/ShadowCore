@@ -28,7 +28,7 @@ public final class PhoenixManager {
     }
 
     /**
-     * Registers a personal chamber at the player's current position and builds it.
+     * Đăng ký và xây buồng hồi sinh tại vị trí hiện tại của người chơi.
      */
     public boolean setChamber(Player player) {
         Location feet = player.getLocation();
@@ -46,7 +46,6 @@ public final class PhoenixManager {
                 0.0F
         );
 
-        // Load the destination chunk before constructing the chamber.
         world.getChunkAt(spawn);
         PhoenixChamber.build(spawn);
 
@@ -59,7 +58,15 @@ public final class PhoenixManager {
         return true;
     }
 
+    /**
+     * Xóa cả khối vật lý của buồng và dữ liệu đã lưu trên người chơi.
+     */
     public void removeChamber(Player player) {
+        Location chamber = getChamber(player);
+        if (chamber != null) {
+            PhoenixChamber.destroy(chamber);
+        }
+
         PersistentDataContainer data = player.getPersistentDataContainer();
         data.remove(worldKey);
         data.remove(xKey);
@@ -108,9 +115,7 @@ public final class PhoenixManager {
             return;
         }
 
-        PhoenixChamber.open(chamber);
-        Location exit = PhoenixChamber.getExit(chamber);
-        player.teleport(exit);
+        PhoenixChamber.shatterAndSpill(chamber, plugin);
     }
 
     public JavaPlugin getPlugin() {

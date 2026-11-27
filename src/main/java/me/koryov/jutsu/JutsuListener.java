@@ -1,6 +1,7 @@
 package me.koryov.jutsu;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -11,7 +12,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 public final class JutsuListener implements Listener {
     private final JutsuManager manager;
@@ -22,24 +23,21 @@ public final class JutsuListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
-        if (event.getAction() != Action.RIGHT_CLICK_AIR
-                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-
+        if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_AIR) return;
         Player player = event.getPlayer();
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
 
-        // Pattern input takes priority so it cannot accidentally cast Rasengan.
-        if (JutsuItems.isPattern(manager.plugin, player.getInventory().getItemInMainHand())) {
+        if (JutsuItems.isPattern(manager.plugin, mainHand)) {
             event.setCancelled(true);
             if (player.isSneaking()) {
-                manager.placeJikukan(player);
+                manager.teleportJikukan(player);
             } else {
                 manager.activateJikukan(player);
             }
             return;
         }
 
-        if (player.isSneaking()
+        if (mainHand.getType().isAir() && player.isSneaking()
                 && JutsuItems.isChestplate(manager.plugin, player.getInventory().getChestplate())) {
             event.setCancelled(true);
             manager.castRasengan(player);

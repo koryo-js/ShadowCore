@@ -17,17 +17,18 @@ import java.util.*;
 public final class JutsuManager {
     final JavaPlugin plugin;
     private final NamespacedKey jikukanKey;
-    private final UUID kcmSpeedUuid = UUID.fromString("7f8bb2b5-9c2f-4a25-a2b4-2d7f7e2a4101");
+    private final NamespacedKey kcmSpeedKey;
     private final Set<UUID> activeJikukan = new HashSet<>();
     private final Map<UUID, Location> lastProjectileLocations = new HashMap<>();
     private final Set<UUID> activeKcm = new HashSet<>();
-    private final Map<UUID, EnumSet<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
+    private final Map<UUID, Set<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
 
     private static final double PORTAL_RADIUS = 1.35;
 
     public JutsuManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.jikukanKey = new NamespacedKey(plugin, "jikukan_anchor");
+        this.kcmSpeedKey = new NamespacedKey(plugin, "kcm_speed");
     }
 
     public void start() {
@@ -172,10 +173,62 @@ public final class JutsuManager {
             return;
         }
 
+
         activeJikukan.add(player.getUniqueId());
         anchor.getWorld().playSound(portalCenter(anchor), Sound.BLOCK_BEACON_ACTIVATE, .9f, 1.5f);
         player.sendActionBar("§5Jikūkan Pattern §7— cổng đã mở, projectile sẽ đi qua Kunai");
     }
+    public void teleportJikukan(Player player) {
+        org.bukkit.inventory.ItemStack item = player.getInventory().getItemInMainHand();
+        if (!JutsuItems.isPattern(plugin, item) || item.getItemMeta() == null) return;
+
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        org.bukkit.persistence.PersistentDataContainer pdc = meta.getPersistentDataContainer();
+
+        // Nếu item chưa lưu tọa độ -> Lưu tọa độ hiện tại làm điểm neo không gian
+        if (!pdc.has(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING)) {
+            Location loc = player.getLocation();
+            String serialized = loc.getWorld().getName() + "," + loc.getX() + "," + loc.getY() + "," + loc.getZ() + "," + loc.getYaw() + "," + loc.getPitch();
+            pdc.set(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING, serialized);
+            item.setItemMeta(meta);
+
+            player.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
+            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 30, 0.4, 0.8, 0.4, 0.05);
+            player.sendActionBar("§5Jikūkan §7— đã khắc ấn không gian tại vị trí này");
+            return;
+        }
+
+        // Nếu đã có tọa độ -> Dịch chuyển tức thời tới đó
+        String raw = pdc.get(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING);
+        if (raw == null) return;
+
+        String[] parts = raw.split(",");
+        World targetWorld = Bukkit.getWorld(parts[0]);
+        if (targetWorld == null) {
+            player.sendActionBar("§cThế giới của ấn không gian không tồn tại!");
+            return;
+        }
+
+        Location dest = new Location(
+                targetWorld,
+                Double.parseDouble(parts[1]),
+                Double.parseDouble(parts[2]),
+                Double.parseDouble(parts[3]),
+                Float.parseFloat(parts[4]),
+                Float.parseFloat(parts[5])
+        );
+
+        // Hiệu ứng tại điểm đi và điểm đến
+        player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 40, 0.5, 1.0, 0.5, 0.2);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+
+        player.teleport(dest);
+
+        targetWorld.spawnParticle(Particle.PORTAL, dest.clone().add(0, 1, 0), 40, 0.5, 1.0, 0.5, 0.2);
+        targetWorld.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+        player.sendActionBar("§dJikūkan Idō §7— đã dịch chuyển không gian!");
+    }
+
 
     /**
      * Detects a projectile crossing the fixed portal plane from its front side.
@@ -346,8 +399,8 @@ public final class JutsuManager {
                 && JutsuItems.isHokageHat(plugin, player.getInventory().getHelmet());
         if (wearing) {
             activeKcm.add(player.getUniqueId());
-            EnumSet<PotionEffectType> owned = kcmOwnedEffects.computeIfAbsent(
-                    player.getUniqueId(), ignored -> EnumSet.noneOf(PotionEffectType.class)
+            Set<PotionEffectType> owned = kcmOwnedEffects.computeIfAbsent(
+                    player.getUniqueId(), ignored -> new HashSet<>()
             );
 
             addKcmEffect(player, PotionEffectType.SPEED, 1, owned);
@@ -356,10 +409,10 @@ public final class JutsuManager {
             addKcmEffect(player, PotionEffectType.RESISTANCE, 0, owned);
 
             AttributeInstance speed = player.getAttribute(Attribute.MOVEMENT_SPEED);
-            if (speed != null && speed.getModifier(kcmSpeedUuid) == null) {
+            if (speed != null && speed.getModifier(kcmSpeedKey) == null) {
                 speed.addModifier(new AttributeModifier(
-                        kcmSpeedUuid, "shadowcore.kcm.speed", 0.18,
-                        AttributeModifier.Operation.ADD_MULTIPLIED_BASE
+                        kcmSpeedKey, 0.18,
+                        AttributeModifier.Operation.ADD_SCALAR
                 ));
             }
 
@@ -391,7 +444,7 @@ public final class JutsuManager {
     }
 
     private void addKcmEffect(Player player, PotionEffectType type, int amplifier,
-                              EnumSet<PotionEffectType> owned) {
+                              Set<PotionEffectType> owned) {
         PotionEffect current = player.getPotionEffect(type);
         if (current == null || owned.contains(type)) {
             player.addPotionEffect(new PotionEffect(type, 40, amplifier, true, false, false));
@@ -406,10 +459,10 @@ public final class JutsuManager {
     public void removeKcmModifier(Player player) {
         activeKcm.remove(player.getUniqueId());
         AttributeInstance speed = player.getAttribute(Attribute.MOVEMENT_SPEED);
-        if (speed != null && speed.getModifier(kcmSpeedUuid) != null) {
-            speed.removeModifier(kcmSpeedUuid);
+        if (speed != null && speed.getModifier(kcmSpeedKey) != null) {
+            speed.removeModifier(kcmSpeedKey);
         }
-        EnumSet<PotionEffectType> owned = kcmOwnedEffects.remove(player.getUniqueId());
+        Set<PotionEffectType> owned = kcmOwnedEffects.remove(player.getUniqueId());
         if (owned != null) {
             for (PotionEffectType type : owned) {
                 player.removePotionEffect(type);

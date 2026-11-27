@@ -1,12 +1,14 @@
 package me.koryov.phoenix;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashSet;
@@ -29,7 +31,7 @@ public final class PhoenixDeathListener implements Listener {
             return;
         }
 
-        // Preserve the complete inventory and XP exactly as they were at death.
+        // Giữ nguyên toàn bộ vật phẩm và kinh nghiệm khi chết
         event.setKeepInventory(true);
         event.setKeepLevel(true);
         event.setDroppedExp(0);
@@ -39,8 +41,6 @@ public final class PhoenixDeathListener implements Listener {
         pendingRevival.add(player.getUniqueId());
         manager.prepare(player);
 
-        // Automatically respawn; the respawn event redirects the player into
-        // their own registered chamber.
         Bukkit.getScheduler().runTaskLater(manager.getPlugin(), () -> {
             if (player.isOnline() && player.isDead()) {
                 player.spigot().respawn();
@@ -71,5 +71,18 @@ public final class PhoenixDeathListener implements Listener {
             pendingRevival.remove(player.getUniqueId());
             new PhoenixRevivalTask(manager, player).begin();
         }, 1L);
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        // Đảm bảo không bị kẹt bất tử/đứng yên nếu thoát game giữa lúc hồi sinh
+        if (player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE) {
+            player.setInvulnerable(false);
+            player.setGravity(true);
+            if (player.getWalkSpeed() == 0.0F) {
+                player.setWalkSpeed(0.2F);
+            }
+        }
     }
 }
