@@ -11,7 +11,7 @@ import org.bukkit.plugin.Plugin;
 
 /**
  * Buồng hồi sinh dạng trụ đứng 3x3x5 với cột bong bóng đẩy lên,
- * hiệu ứng vỡ kính và nước tràn ra khi hoàn tất.
+ * hiệu ứng vỡ cột kính giữa và nước tràn ra khi hoàn tất.
  */
 public final class PhoenixChamber {
 
@@ -61,34 +61,6 @@ public final class PhoenixChamber {
         // Đổ đầy nước cột giữa (bật physics = true để tạo cột bong bóng)
         fillWater(spawn);
     }
-    /**
-     * Xóa toàn bộ khối của buồng hồi sinh (3x3x5) và dọn sạch nước xung quanh.
-     */
-    public static void destroy(Location spawn) {
-        World world = spawn.getWorld();
-        if (world == null) {
-            return;
-        }
-
-        int cx = spawn.getBlockX();
-        int cy = spawn.getBlockY();
-        int cz = spawn.getBlockZ();
-
-        // Dọn sạch nước bên trong và nước tràn bên ngoài trước
-        clearSpilledWater(spawn);
-        for (int y = 0; y <= 2; y++) {
-            set(world, cx, cy + y, cz, Material.AIR, false);
-        }
-
-        // Xóa toàn bộ khung buồng từ đáy (y = -1) lên đến nóc (y = 3)
-        for (int y = -1; y <= 3; y++) {
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
-                    set(world, cx + x, cy + y, cz + z, Material.AIR, false);
-                }
-            }
-        }
-    }
 
     public static void close(Location spawn) {
         World world = spawn.getWorld();
@@ -100,7 +72,7 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Chỉ đóng lại cột 1x3 chính giữa ở mặt trước (z + 1)
+        // Đóng lại cột kính 1x3 chính giữa ở mặt trước (z + 1)
         for (int y = 0; y <= 2; y++) {
             set(world, cx, cy + y, cz + 1, GLASS_TYPE, false);
         }
@@ -109,7 +81,7 @@ public final class PhoenixChamber {
     }
 
     /**
-     * Chỉ phá vỡ cột kính 1x3 chính giữa mặt trước để nước tràn qua khe cửa.
+     * Phá vỡ cột kính 1x3 chính giữa mặt trước để nước tràn qua khe cửa, sau đó tự dọn nước tràn.
      */
     public static void shatterAndSpill(Location spawn, Plugin plugin) {
         World world = spawn.getWorld();
@@ -121,7 +93,6 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Âm thanh vỡ kính + xả áp lực nước
         Location frontCenter = spawn.clone().add(0.0, 1.0, 1.0);
         world.playSound(frontCenter, Sound.BLOCK_GLASS_BREAK, 1.6F, 0.85F);
         world.playSound(frontCenter, Sound.ENTITY_PLAYER_SPLASH_HIGH_SPEED, 1.2F, 1.0F);
@@ -135,8 +106,35 @@ public final class PhoenixChamber {
             }
         }
 
-        // Sau 2.5 giây (50 ticks), tự dọn nước tràn phía ngoài
+        // Sau 2.5 giây (50 ticks), rút bớt nước tràn phía ngoài
         Bukkit.getScheduler().runTaskLater(plugin, () -> clearSpilledWater(spawn), 50L);
+    }
+
+    /**
+     * Xóa toàn bộ khối của buồng hồi sinh (3x3x5) và dọn sạch nước xung quanh.
+     */
+    public static void destroy(Location spawn) {
+        World world = spawn.getWorld();
+        if (world == null) {
+            return;
+        }
+
+        int cx = spawn.getBlockX();
+        int cy = spawn.getBlockY();
+        int cz = spawn.getBlockZ();
+
+        clearSpilledWater(spawn);
+        for (int y = 0; y <= 2; y++) {
+            set(world, cx, cy + y, cz, Material.AIR, false);
+        }
+
+        for (int y = -1; y <= 3; y++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    set(world, cx + x, cy + y, cz + z, Material.AIR, false);
+                }
+            }
+        }
     }
 
     private static void fillWater(Location spawn) {
@@ -149,7 +147,6 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Đặt nước nguồn từ y = 0 đến y = 2 với physics = true để kích hoạt bọt khí Soul Sand
         for (int y = 0; y <= 2; y++) {
             set(world, cx, cy + y, cz, Material.WATER, true);
         }
@@ -165,7 +162,6 @@ public final class PhoenixChamber {
         int cy = spawn.getBlockY();
         int cz = spawn.getBlockZ();
 
-        // Dọn nước chảy tràn ở khu vực phía trước buồng (z từ +1 đến +8)
         for (int x = -6; x <= 6; x++) {
             for (int z = 1; z <= 8; z++) {
                 for (int y = -1; y <= 2; y++) {
