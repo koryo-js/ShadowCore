@@ -188,62 +188,6 @@ public final class JutsuManager {
         drawPortalRing(origin);
         player.sendActionBar("§5Jikūkan Pattern §7— cổng hút đã mở trong 5 giây");
     }
-    public void teleportJikukan(Player player) {
-        org.bukkit.inventory.ItemStack item = player.getInventory().getItemInMainHand();
-        if (!JutsuItems.isPattern(plugin, item) || item.getItemMeta() == null) return;
-
-        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        org.bukkit.persistence.PersistentDataContainer pdc = meta.getPersistentDataContainer();
-
-        // Nếu item chưa lưu tọa độ -> Lưu tọa độ hiện tại làm điểm neo không gian
-        if (!pdc.has(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING)) {
-            Location loc = player.getLocation();
-            String serialized = loc.getWorld().getName() + "," + loc.getX() + "," + loc.getY() + "," + loc.getZ() + "," + loc.getYaw() + "," + loc.getPitch();
-            pdc.set(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING, serialized);
-            item.setItemMeta(meta);
-
-            player.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
-            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 30, 0.4, 0.8, 0.4, 0.05);
-            player.sendActionBar("§5Jikūkan §7— đã khắc ấn không gian tại vị trí này");
-            return;
-        }
-
-        // Nếu đã có tọa độ -> Dịch chuyển tức thời tới đó
-        String raw = pdc.get(jikukanKey, org.bukkit.persistence.PersistentDataType.STRING);
-        if (raw == null) return;
-
-        String[] parts = raw.split(",");
-        World targetWorld = Bukkit.getWorld(parts[0]);
-        if (targetWorld == null) {
-            player.sendActionBar("§cThế giới của ấn không gian không tồn tại!");
-            return;
-        }
-
-        Location dest = new Location(
-                targetWorld,
-                Double.parseDouble(parts[1]),
-                Double.parseDouble(parts[2]),
-                Double.parseDouble(parts[3]),
-                Float.parseFloat(parts[4]),
-                Float.parseFloat(parts[5])
-        );
-
-        // Hiệu ứng tại điểm đi và điểm đến
-        player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 40, 0.5, 1.0, 0.5, 0.2);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
-
-        player.teleport(dest);
-
-        targetWorld.spawnParticle(Particle.PORTAL, dest.clone().add(0, 1, 0), 40, 0.5, 1.0, 0.5, 0.2);
-        targetWorld.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
-        player.sendActionBar("§dJikūkan Idō §7— đã dịch chuyển không gian!");
-    }
-
-
-    /**
-     * Detects a projectile crossing the fixed portal plane from its front side.
-     * Its velocity is captured before teleport and restored unchanged afterward.
-     */
     private void pulseJikukan(Player owner) {
         UUID ownerId = owner.getUniqueId();
         JikukanPortal portal = activeJikukan.get(ownerId);
@@ -373,39 +317,6 @@ public final class JutsuManager {
                 new NamespacedKey(plugin, "hiraishin_mark_entity"),
                 PersistentDataType.BYTE
         );
-    }
-
-    private Location findHiraishinTarget(Player player) {
-        String raw = player.getPersistentDataContainer().get(
-                new NamespacedKey(plugin, "hiraishin_marks"),
-                PersistentDataType.STRING
-        );
-        if (raw == null || raw.isBlank()) return null;
-
-        String[] marks = raw.split(";");
-        for (int i = marks.length - 1; i >= 0; i--) {
-            String[] fields = marks[i].split(",");
-            if (fields.length != 5) continue;
-
-            try {
-                UUID entityId = UUID.fromString(fields[0]);
-                UUID worldId = UUID.fromString(fields[1]);
-                double x = Double.parseDouble(fields[2]);
-                double y = Double.parseDouble(fields[3]);
-                double z = Double.parseDouble(fields[4]);
-
-                Entity entity = Bukkit.getEntity(entityId);
-                if (entity instanceof Trident trident && trident.isValid() && isHiraishinKunai(trident)) {
-                    return trident.getLocation().clone();
-                }
-
-                World world = Bukkit.getWorld(worldId);
-                if (world != null) return new Location(world, x, y, z);
-            } catch (IllegalArgumentException ignored) {
-                // Skip an invalid mark and continue checking older marks.
-            }
-        }
-        return null;
     }
 
     private Location loadJikukanAnchor(Player player) {
