@@ -34,7 +34,7 @@ public final class JutsuListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_AIR) return;
         Player player = event.getPlayer();
 
-        if (player.isSneaking() && JutsuItems.isChestplate(manager.plugin, player.getInventory().getItemInMainHand())) {
+        if (player.isSneaking() && JutsuItems.isChestplate(manager.plugin, player.getInventory().getChestplate())) {
             event.setCancelled(true);
             manager.castRasengan(player);
             return;
