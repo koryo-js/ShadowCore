@@ -1,12 +1,12 @@
 package me.koryov.jutsu;
 
+import me.koryov.hiraishin.HiraishinManager;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.persistence.PersistentDataType;
-import me.koryov.hiraishin.HiraishinManager;
 import org.bukkit.entity.*;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -20,14 +20,16 @@ public final class JutsuManager {
     private final NamespacedKey jikukanKey;
     private final UUID kcmSpeedUuid = UUID.fromString("7f8bb2b5-9c2f-4a25-a2b4-2d7f7e2a4101");
     private final Set<UUID> activeJikukan = new HashSet<>();
-    private final Map<UUID, Location> jikukanTargets = new HashMap<>();
+    private final Map<UUID, Location> lastProjectileLocations = new HashMap<>();
     private final HiraishinManager hiraishinManager;
     private final Set<UUID> activeKcm = new HashSet<>();
     private final Map<UUID, EnumSet<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
 
+    private static final double PORTAL_RADIUS = 1.35;
+
     public JutsuManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.jikukanKey = new NamespacedKey(plugin, "jikukan_field");
+        this.jikukanKey = new NamespacedKey(plugin, "jikukan_anchor");
         this.hiraishinManager = new HiraishinManager(plugin);
     }
 
@@ -39,21 +41,32 @@ public final class JutsuManager {
                     pulseJikukan(player);
                 }
             }
+
+            Set<UUID> seenProjectiles = new HashSet<>();
+            for (World world : Bukkit.getWorlds()) {
+                for (Entity entity : world.getEntities()) {
+                    if (entity instanceof Projectile projectile && projectile.isValid() && !projectile.isDead()) {
+                        seenProjectiles.add(projectile.getUniqueId());
+                        lastProjectileLocations.put(projectile.getUniqueId(), projectile.getLocation().clone());
+                    }
+                }
+            }
+            lastProjectileLocations.keySet().removeIf(id -> !seenProjectiles.contains(id));
         }, 1L, 1L);
     }
 
     public void castRasengan(Player player) {
         if (!JutsuItems.isChestplate(plugin, player.getInventory().getChestplate())) return;
 
-        Location start = player.getEyeLocation().clone().add(player.getLocation().getDirection().normalize().multiply(0.7));
+        Location start = player.getEyeLocation().clone()
+                .add(player.getLocation().getDirection().normalize().multiply(0.7));
         Vector direction = player.getLocation().getDirection().normalize();
         World world = player.getWorld();
 
         player.swingMainHand();
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_STRONG, 1.0f, 1.6f);
-        player.getWorld().spawnParticle(Particle.END_ROD, start, 18, .18, .18, .18, .03);
+        world.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_STRONG, 1.0f, 1.6f);
+        world.spawnParticle(Particle.END_ROD, start, 18, .18, .18, .18, .03);
 
-        final int maxTicks = 28;
         final double speed = 0.95;
         final double[] travelled = {0.0};
         final Location[] current = {start};
@@ -116,84 +129,153 @@ public final class JutsuManager {
         world.spawnParticle(Particle.GLOW, center, 5, .12, .12, .12, .01);
     }
 
+    /**
+     * Shift + right-click stores the seal at the player's current position.
+     * The location and facing direction are persisted on the player.
+     */
+    public void placeJikukan(Player player) {
+        if (!JutsuItems.isPattern(plugin, player.getInventory().getItemInMainHand())) return;
+
+        activeJikukan.remove(player.getUniqueId());
+        Location anchor = player.getLocation().clone();
+        String encoded = anchor.getWorld().getUID() + ","
+                + anchor.getX() + "," + anchor.getY() + "," + anchor.getZ() + ","
+                + anchor.getYaw() + "," + anchor.getPitch();
+
+        player.getPersistentDataContainer().set(jikukanKey, PersistentDataType.STRING, encoded);
+
+        Location center = portalCenter(anchor);
+        anchor.getWorld().playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, .8f, 1.4f);
+        anchor.getWorld().spawnParticle(Particle.PORTAL, center, 55, .7, .8, .7, .25);
+        drawPortalRing(anchor);
+
+        player.sendActionBar("§5Jikūkan Pattern §7— đã đặt kết ấn tại vị trí này");
+    }
+
+    /**
+     * Right-click toggles the portal. A Hiraishin Kunai is required as its exit.
+     */
     public void activateJikukan(Player player) {
         if (!JutsuItems.isPattern(plugin, player.getInventory().getItemInMainHand())) return;
-        if (activeJikukan.contains(player.getUniqueId())) return;
 
-        Location target = findHiraishinTarget(player);
-        if (target == null) {
-            player.sendActionBar("§5Jikūkan Kekkai §7— cần một Hiraishin Kunai đã đánh dấu");
+        if (activeJikukan.remove(player.getUniqueId())) {
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, .8f, 1.2f);
+            player.sendActionBar("§5Jikūkan Pattern §7— cổng đã tắt");
+            return;
+        }
+
+        Location anchor = loadJikukanAnchor(player);
+        if (anchor == null) {
+            player.sendActionBar("§5Jikūkan Pattern §7— Shift + chuột phải để đặt kết ấn trước");
+            return;
+        }
+
+        if (findHiraishinTarget(player) == null) {
+            player.sendActionBar("§5Jikūkan Pattern §7— cần ném Hiraishin Kunai để tạo lối ra");
             return;
         }
 
         activeJikukan.add(player.getUniqueId());
-        jikukanTargets.put(player.getUniqueId(), target.clone());
-
-        Location loc = player.getLocation().clone();
-        player.getWorld().playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, .8f, 1.4f);
-        player.getWorld().spawnParticle(Particle.PORTAL, loc, 80, 3.0, 1.0, 3.0, .8);
-        drawJikukanPortal(loc, target);
-        player.sendActionBar("§5Jikūkan Kekkai §7— cổng liên kết với Hiraishin Kunai");
-
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            activeJikukan.remove(player.getUniqueId());
-            jikukanTargets.remove(player.getUniqueId());
-            if (player.isOnline()) player.sendActionBar("§7Jikūkan Kekkai kết thúc");
-        }, 100L);
+        anchor.getWorld().playSound(portalCenter(anchor), Sound.BLOCK_BEACON_ACTIVATE, .9f, 1.5f);
+        player.sendActionBar("§5Jikūkan Pattern §7— cổng đã mở, projectile sẽ đi qua Kunai");
     }
 
     /**
-     * Jikūkan Kekkai absorbs an incoming projectile's current vector,
-     * moves the projectile to the linked Hiraishin mark, then restores
-     * that exact vector. The Hiraishin mark itself is never consumed.
+     * Detects a projectile crossing the fixed portal plane from its front side.
+     * Its velocity is captured before teleport and restored unchanged afterward.
      */
     private void pulseJikukan(Player owner) {
-        Location center = owner.getLocation();
+        Location anchor = loadJikukanAnchor(owner);
         Location target = findHiraishinTarget(owner);
-        if (target == null) {
+        if (anchor == null || target == null) {
             activeJikukan.remove(owner.getUniqueId());
-            jikukanTargets.remove(owner.getUniqueId());
+            owner.sendActionBar("§5Jikūkan Pattern §7— mất kết nối với Hiraishin Kunai");
             return;
         }
 
-        jikukanTargets.put(owner.getUniqueId(), target.clone());
+        Vector normal = anchor.getDirection().normalize();
+        Location center = portalCenter(anchor);
+        drawPortalRing(anchor);
 
-        World world = center.getWorld();
+        World world = anchor.getWorld();
         if (world == null) return;
-        double radius = 7.0;
 
-        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
-            if (!(entity instanceof Projectile projectile)) continue;
-            if (projectile.getShooter() == owner) continue;
+        for (Entity entity : world.getNearbyEntities(center, 2.6, 2.6, 2.6)) {
+            if (!(entity instanceof Projectile projectile) || !projectile.isValid()) continue;
             if (projectile instanceof Trident trident && isHiraishinKunai(trident)) continue;
 
-            Vector velocity = projectile.getVelocity();
-            if (velocity.lengthSquared() < 0.01) continue;
+            Location previous = lastProjectileLocations.get(projectile.getUniqueId());
+            Location current = projectile.getLocation().clone();
+            if (previous == null || previous.getWorld() == null
+                    || !previous.getWorld().equals(world)) continue;
 
-            Vector absorbedVector = velocity.clone();
-            if (!projectile.teleport(target)) continue;
+            if (!crossesPortalPlane(previous, current, center, normal)) continue;
 
-            projectile.setVelocity(absorbedVector);
-            spawnPortalArrival(target);
+            Vector velocity = projectile.getVelocity().clone();
+            if (velocity.lengthSquared() < 0.0001) continue;
+
+            Location exit = target.clone().add(velocity.clone().normalize().multiply(0.8));
+            exit.setYaw(current.getYaw());
+            exit.setPitch(current.getPitch());
+
+            if (projectile.teleport(exit)) {
+                projectile.setVelocity(velocity);
+                World exitWorld = exit.getWorld();
+                if (exitWorld != null) {
+                    exitWorld.spawnParticle(Particle.PORTAL, exit, 28, .35, .45, .35, .15);
+                    exitWorld.spawnParticle(Particle.END_ROD, exit, 8, .2, .25, .2, .02);
+                    exitWorld.playSound(exit, Sound.ENTITY_ENDERMAN_TELEPORT, .6f, 1.6f);
+                }
+                world.spawnParticle(Particle.PORTAL, center, 20, .35, .45, .35, .12);
+                world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, .45f, 1.8f);
+            }
         }
-
-        world.spawnParticle(Particle.ENCHANT, center, 12, radius, .15, radius, .01);
-        drawJikukanPortal(center, target);
     }
 
-    private void drawJikukanPortal(Location origin, Location target) {
-        if (origin.getWorld() != null) {
-            origin.getWorld().spawnParticle(Particle.PORTAL, origin.clone().add(0, 1.0, 0),
-                    18, .45, .8, .45, .08);
-        }
-        spawnPortalArrival(target);
+    private boolean crossesPortalPlane(Location previous, Location current,
+                                       Location center, Vector normal) {
+        Vector from = previous.toVector().subtract(center.toVector());
+        Vector to = current.toVector().subtract(center.toVector());
+        double fromSide = from.dot(normal);
+        double toSide = to.dot(normal);
+
+        // Only enter from the side the seal faces.
+        if (fromSide <= 0.0 || toSide > 0.0) return false;
+
+        double denominator = fromSide - toSide;
+        if (denominator <= 0.000001) return false;
+        double progress = fromSide / denominator;
+
+        Vector crossing = previous.toVector().add(
+                current.toVector().subtract(previous.toVector()).multiply(progress)
+        );
+        Vector offset = crossing.subtract(center.toVector());
+        Vector radial = offset.subtract(normal.clone().multiply(offset.dot(normal)));
+        return radial.lengthSquared() <= PORTAL_RADIUS * PORTAL_RADIUS;
     }
 
-    private void spawnPortalArrival(Location target) {
-        if (target == null || target.getWorld() == null) return;
-        Location center = target.clone().add(0, 1.0, 0);
-        target.getWorld().spawnParticle(Particle.PORTAL, center, 18, .45, .8, .45, .08);
-        target.getWorld().spawnParticle(Particle.END_ROD, center, 5, .18, .35, .18, .01);
+    private Location portalCenter(Location anchor) {
+        return anchor.clone().add(0, 1.0, 0);
+    }
+
+    private void drawPortalRing(Location anchor) {
+        World world = anchor.getWorld();
+        if (world == null) return;
+
+        Location center = portalCenter(anchor);
+        Vector normal = anchor.getDirection().normalize();
+        Vector up = new Vector(0, 1, 0);
+        Vector right = normal.clone().crossProduct(up);
+        if (right.lengthSquared() < 0.0001) right = new Vector(1, 0, 0);
+        right.normalize();
+
+        for (int i = 0; i < 28; i++) {
+            double angle = (Math.PI * 2.0 * i) / 28.0;
+            Vector point = right.clone().multiply(Math.cos(angle) * PORTAL_RADIUS)
+                    .add(up.clone().multiply(Math.sin(angle) * PORTAL_RADIUS));
+            world.spawnParticle(Particle.PORTAL, center.clone().add(point), 1, 0, 0, 0, 0);
+        }
+        world.spawnParticle(Particle.END_ROD, center, 3, .25, .35, .25, .01);
     }
 
     private boolean isHiraishinKunai(Trident trident) {
@@ -203,10 +285,6 @@ public final class JutsuManager {
         );
     }
 
-    /**
-     * Reads the existing Hiraishin mark data without changing the Hiraishin module.
-     * The newest valid mark is used as the Jikūkan destination.
-     */
     private Location findHiraishinTarget(Player player) {
         String raw = player.getPersistentDataContainer().get(
                 new NamespacedKey(plugin, "hiraishin_marks"),
@@ -234,24 +312,35 @@ public final class JutsuManager {
                 World world = Bukkit.getWorld(worldId);
                 if (world != null) return new Location(world, x, y, z);
             } catch (IllegalArgumentException ignored) {
+                // Skip an invalid mark and continue checking older marks.
             }
         }
         return null;
     }
 
-    public void teleportJikukan(Player player) {
-        if (!JutsuItems.isPattern(plugin, player.getInventory().getItemInMainHand())) return;
-        if (!hiraishinManager.hasMark(player)) {
-            player.sendActionBar("§5Jikūkan §7— không có Hiraishin Kunai");
-            return;
+    private Location loadJikukanAnchor(Player player) {
+        String raw = player.getPersistentDataContainer().get(jikukanKey, PersistentDataType.STRING);
+        if (raw == null || raw.isBlank()) return null;
+
+        String[] fields = raw.split(",");
+        if (fields.length != 6) return null;
+
+        try {
+            World world = Bukkit.getWorld(UUID.fromString(fields[0]));
+            if (world == null) return null;
+            return new Location(world,
+                    Double.parseDouble(fields[1]),
+                    Double.parseDouble(fields[2]),
+                    Double.parseDouble(fields[3]),
+                    Float.parseFloat(fields[4]),
+                    Float.parseFloat(fields[5]));
+        } catch (IllegalArgumentException ignored) {
+            return null;
         }
-        hiraishinManager.teleportToKunai(player);
     }
 
     public void onProjectileHit(Projectile projectile) {
-        if (projectile == null || projectile.isDead()) return;
-        // Paper will call this when a projectile hits. The field itself continuously
-        // redirects projectiles, so no persistent state is required here.
+        // The fixed portal plane is checked every tick; no extra hit-event state is needed.
     }
 
     public void refreshKcm(Player player) {
@@ -286,7 +375,7 @@ public final class JutsuManager {
     }
 
     private void addKcmEffect(Player player, PotionEffectType type, int amplifier,
-                               EnumSet<PotionEffectType> owned) {
+                              EnumSet<PotionEffectType> owned) {
         PotionEffect current = player.getPotionEffect(type);
         if (current == null || owned.contains(type)) {
             player.addPotionEffect(new PotionEffect(type, 40, amplifier, true, false, false));
