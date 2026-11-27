@@ -288,6 +288,12 @@ public final class JutsuManager {
      * eggs, pearls, wind charges and similar vanilla projectile entities.
      * Primed TNT, fireworks and moving falling blocks are also physical attacks.
      */
+    public void trackAttackEntity(Entity entity) {
+        if (isAttackObject(entity)) {
+            lastAttackLocations.put(entity.getUniqueId(), entity.getLocation().clone());
+        }
+    }
+
     private boolean isAttackObject(Entity entity) {
         return entity instanceof Projectile
                 || entity instanceof TNTPrimed
