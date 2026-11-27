@@ -27,6 +27,21 @@ public final class ShadowCoreUpdater {
 
     private ShadowCoreUpdater() {}
 
+    /**
+     * Starts automatic release checks every 10 minutes. The initial check is
+     * still performed separately during plugin startup.
+     */
+    public static void startAutoChecks(JavaPlugin plugin) {
+        long intervalTicks = 20L * 60L * 10L;
+        Bukkit.getScheduler().runTaskTimer(
+                plugin,
+                () -> checkAsync(plugin),
+                intervalTicks,
+                intervalTicks
+        );
+        plugin.getLogger().info("ShadowCore updater: automatic checks scheduled every 10 minutes.");
+    }
+
     public static void checkAsync(JavaPlugin plugin) {
         checkAsync(plugin, null);
     }
