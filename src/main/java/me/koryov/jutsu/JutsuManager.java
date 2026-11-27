@@ -273,8 +273,9 @@ public final class JutsuManager {
         double fromSide = from.dot(normal);
         double toSide = to.dot(normal);
 
-        // Only enter from the side the seal faces.
-        if (fromSide <= 0.0 || toSide > 0.0) return false;
+        // Catch a physical attack crossing the portal plane from either side.
+        if ((fromSide > 0.0 && toSide > 0.0)
+                || (fromSide < 0.0 && toSide < 0.0)) return false;
 
         double denominator = fromSide - toSide;
         if (denominator <= 0.000001) return false;
