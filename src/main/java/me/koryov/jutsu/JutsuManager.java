@@ -19,6 +19,7 @@ public final class JutsuManager {
     private final UUID kcmSpeedUuid = UUID.fromString("7f8bb2b5-9c2f-4a25-a2b4-2d7f7e2a4101");
     private final Set<UUID> activeJikukan = new HashSet<>();
     private final Set<UUID> activeKcm = new HashSet<>();
+    private final Map<UUID, EnumSet<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
 
     public JutsuManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -165,10 +166,14 @@ public final class JutsuManager {
                 && JutsuItems.isHokageHat(plugin, player.getInventory().getHelmet());
         if (wearing) {
             activeKcm.add(player.getUniqueId());
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 1, true, false, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 40, 1, true, false, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 40, 1, true, false, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 40, 0, true, false, false));
+            EnumSet<PotionEffectType> owned = kcmOwnedEffects.computeIfAbsent(
+                    player.getUniqueId(), ignored -> EnumSet.noneOf(PotionEffectType.class)
+            );
+
+            addKcmEffect(player, PotionEffectType.SPEED, 1, owned);
+            addKcmEffect(player, PotionEffectType.STRENGTH, 1, owned);
+            addKcmEffect(player, PotionEffectType.JUMP_BOOST, 1, owned);
+            addKcmEffect(player, PotionEffectType.RESISTANCE, 0, owned);
 
             AttributeInstance speed = player.getAttribute(Attribute.MOVEMENT_SPEED);
             if (speed != null && speed.getModifier(kcmSpeedUuid) == null) {
@@ -187,6 +192,15 @@ public final class JutsuManager {
         }
     }
 
+    private void addKcmEffect(Player player, PotionEffectType type, int amplifier,
+                               EnumSet<PotionEffectType> owned) {
+        PotionEffect current = player.getPotionEffect(type);
+        if (current == null || owned.contains(type)) {
+            player.addPotionEffect(new PotionEffect(type, 40, amplifier, true, false, false));
+            owned.add(type);
+        }
+    }
+
     public boolean isKcmActive(Player player) {
         return activeKcm.contains(player.getUniqueId());
     }
@@ -197,12 +211,11 @@ public final class JutsuManager {
         if (speed != null && speed.getModifier(kcmSpeedUuid) != null) {
             speed.removeModifier(kcmSpeedUuid);
         }
-        for (PotionEffectType type : List.of(
-                PotionEffectType.SPEED, PotionEffectType.STRENGTH,
-                PotionEffectType.JUMP_BOOST, PotionEffectType.RESISTANCE
-        )) {
-            PotionEffect effect = player.getPotionEffect(type);
-            if (effect != null && effect.getAmplifier() <= 1) player.removePotionEffect(type);
+        EnumSet<PotionEffectType> owned = kcmOwnedEffects.remove(player.getUniqueId());
+        if (owned != null) {
+            for (PotionEffectType type : owned) {
+                player.removePotionEffect(type);
+            }
         }
     }
 }
