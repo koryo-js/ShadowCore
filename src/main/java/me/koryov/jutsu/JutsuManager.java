@@ -19,7 +19,7 @@ public final class JutsuManager {
     private final NamespacedKey jikukanKey;
     private final NamespacedKey kcmSpeedKey;
     private final Set<UUID> activeJikukan = new HashSet<>();
-    private final Map<UUID, Location> lastProjectileLocations = new HashMap<>();
+    private final Map<UUID, Location> lastAttackLocations = new HashMap<>();
     private final Set<UUID> activeKcm = new HashSet<>();
     private final Map<UUID, Set<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
 
@@ -40,16 +40,16 @@ public final class JutsuManager {
                 }
             }
 
-            Set<UUID> seenProjectiles = new HashSet<>();
+            Set<UUID> seenAttacks = new HashSet<>();
             for (World world : Bukkit.getWorlds()) {
                 for (Entity entity : world.getEntities()) {
-                    if (entity instanceof Projectile projectile && projectile.isValid() && !projectile.isDead()) {
-                        seenProjectiles.add(projectile.getUniqueId());
-                        lastProjectileLocations.put(projectile.getUniqueId(), projectile.getLocation().clone());
+                    if (isAttackObject(entity) && entity.isValid() && !entity.isDead()) {
+                        seenAttacks.add(entity.getUniqueId());
+                        lastAttackLocations.put(entity.getUniqueId(), entity.getLocation().clone());
                     }
                 }
             }
-            lastProjectileLocations.keySet().removeIf(id -> !seenProjectiles.contains(id));
+            lastAttackLocations.keySet().removeIf(id -> !seenAttacks.contains(id));
         }, 1L, 1L);
     }
 
@@ -251,24 +251,25 @@ public final class JutsuManager {
         if (world == null) return;
 
         for (Entity entity : world.getNearbyEntities(center, 2.6, 2.6, 2.6)) {
-            if (!(entity instanceof Projectile projectile) || !projectile.isValid()) continue;
-            if (projectile instanceof Trident trident && isHiraishinKunai(trident)) continue;
+            if (!isAttackObject(entity) || !entity.isValid()) continue;
+            if (entity instanceof Trident trident && isHiraishinKunai(trident)) continue;
 
-            Location previous = lastProjectileLocations.get(projectile.getUniqueId());
-            Location current = projectile.getLocation().clone();
+            Location previous = lastAttackLocations.get(entity.getUniqueId());
+            Location current = entity.getLocation().clone();
             if (previous == null || previous.getWorld() == null
                     || !previous.getWorld().equals(world)) continue;
 
             if (!crossesPortalPlane(previous, current, center, normal)) continue;
 
-            Vector velocity = projectile.getVelocity().clone();
+            Vector velocity = entity.getVelocity().clone();
             if (velocity.lengthSquared() < 0.0001) continue;
 
             Location exit = target.clone().add(velocity.clone().normalize().multiply(0.8));
             exit.setYaw(current.getYaw());
             exit.setPitch(current.getPitch());
 
-            if (projectile.teleport(exit)) {
+            if (entity.teleport(exit)) {
+                entity.setVelocity(velocity);
                 projectile.setVelocity(velocity);
                 World exitWorld = exit.getWorld();
                 if (exitWorld != null) {
@@ -280,6 +281,19 @@ public final class JutsuManager {
                 world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, .45f, 1.8f);
             }
         }
+    }
+
+    /**
+     * Jikukan catches physical attack entities, not particle-only effects.
+     * Projectile covers arrows, tridents, fireballs, potions, snowballs,
+     * eggs, pearls, wind charges and similar vanilla projectile entities.
+     * Primed TNT, fireworks and moving falling blocks are also physical attacks.
+     */
+    private boolean isAttackObject(Entity entity) {
+        return entity instanceof Projectile
+                || entity instanceof TNTPrimed
+                || entity instanceof Firework
+                || entity instanceof FallingBlock;
     }
 
     private boolean crossesPortalPlane(Location previous, Location current,
