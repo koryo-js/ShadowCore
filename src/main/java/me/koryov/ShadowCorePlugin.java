@@ -11,7 +11,6 @@ import me.koryov.forcefield.ForcefieldListener;
 import me.koryov.jutsu.JutsuManager;
 import me.koryov.jutsu.JutsuListener;
 import me.koryov.jutsu.JutsuEquipListener;
-import me.koryov.jutsu.JutsuCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
@@ -149,10 +148,6 @@ public final class ShadowCorePlugin extends JavaPlugin {
         );
         getServer().getPluginManager().registerEvents(new JutsuListener(jutsuManager), this);
         getServer().getPluginManager().registerEvents(new JutsuEquipListener(jutsuManager), this);
-        if (getCommand("shadowjutsu") != null) {
-            getCommand("shadowjutsu").setExecutor(new JutsuCommand(this));
-        }
-
         getServer()
                 .getPluginManager()
                 .registerEvents(
