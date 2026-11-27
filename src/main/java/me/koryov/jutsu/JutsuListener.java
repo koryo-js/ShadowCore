@@ -24,14 +24,16 @@ public final class JutsuListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_AIR) return;
+        if (event.getHand() != EquipmentSlot.HAND
+                || (event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK)) return;
         Player player = event.getPlayer();
         ItemStack mainHand = player.getInventory().getItemInMainHand();
 
         if (JutsuItems.isPattern(manager.plugin, mainHand)) {
             event.setCancelled(true);
             if (player.isSneaking()) {
-                manager.teleportJikukan(player);
+                manager.placeJikukan(player);
             } else {
                 manager.activateJikukan(player);
             }
