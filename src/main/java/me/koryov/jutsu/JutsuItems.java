@@ -70,7 +70,7 @@ public final class JutsuItems {
         meta.setLore(java.util.List.of(
                 "§7Shift + chuột phải: đặt kết ấn tại vị trí hiện tại.",
                 "§7Chuột phải: bật hoặc tắt cổng không-thời gian.",
-                "§7Projectile xuyên qua cổng sẽ xuất hiện tại Hiraishin Kunai."
+                "§7Vật thể tấn công vật lý bay vào cổng sẽ bị chuyển tới Hiraishin Kunai."
         ));
         meta.getPersistentDataContainer().set(
                 new NamespacedKey(plugin, "jikukan_pattern"),
