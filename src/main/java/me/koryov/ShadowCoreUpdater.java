@@ -81,14 +81,14 @@ public final class ShadowCoreUpdater {
 
                 if (latest == null) {
                     notifyResult(plugin, requester,
-                            "Không xác định được release mới nhất hoặc không tìm thấy JAR ShadowCore.");
+                            "Unable to determine the latest release or find the ShadowCore JAR.");
                     return;
                 }
 
                 String currentVersion = plugin.getDescription().getVersion();
                 if (compareVersions(stripV(latest.tag), stripV(currentVersion)) <= 0) {
                     notifyResult(plugin, requester,
-                            "ShadowCore đang ở phiên bản mới nhất (" + currentVersion + ").");
+                            "ShadowCore is already on the latest version (" + currentVersion + ").");
                     return;
                 }
 
@@ -104,7 +104,7 @@ public final class ShadowCoreUpdater {
 
                 if (downloadResponse.statusCode() != 200 || downloadResponse.body().length == 0) {
                     updateInProgress = false;
-                    notifyResult(plugin, requester, "Tải JAR ShadowCore thất bại.");
+                    notifyResult(plugin, requester, "Failed to download the ShadowCore JAR.");
                     return;
                 }
 
@@ -113,18 +113,18 @@ public final class ShadowCoreUpdater {
                         || compareVersions(stripV(packagedVersion), stripV(latest.tag)) != 0) {
                     updateInProgress = false;
                     plugin.getLogger().warning("ShadowCore updater: Release tag " + latest.tag
-                            + " không khớp version trong plugin.yml của JAR ("
-                            + (packagedVersion == null ? "không đọc được" : packagedVersion)
-                            + "). Bỏ qua cập nhật để tránh restart loop.");
+                            + " does not match the version in the JAR's plugin.yml ("
+                            + (packagedVersion == null ? "unreadable" : packagedVersion)
+                            + "). Skipping update to prevent a restart loop.");
                     notifyResult(plugin, requester,
-                            "Version trong JAR không khớp release; đã bỏ qua cập nhật.");
+                            "Version in the JAR does not match the release; update skipped.");
                     return;
                 }
 
                 if (compareVersions(stripV(packagedVersion), stripV(currentVersion)) <= 0) {
                     updateInProgress = false;
                     notifyResult(plugin, requester,
-                            "JAR trên GitHub không mới hơn bản đang chạy; đã bỏ qua.");
+                            "JAR on GitHub is not newer than the version currently running; skipped.");
                     return;
                 }
 
@@ -134,15 +134,15 @@ public final class ShadowCoreUpdater {
                 Files.write(updateDirectory.resolve(UPDATE_FILE_NAME), downloadResponse.body());
 
                 notifyResult(plugin, requester,
-                        "Đã tải ShadowCore " + latest.tag
-                                + ". Server sẽ tắt để Paper áp dụng bản mới khi khởi động lại.");
+                        "Downloaded ShadowCore " + latest.tag
+                                + ". Server will shut down so Paper can apply the latest version.");
                 Bukkit.getScheduler().runTask(plugin, Bukkit::shutdown);
 
             } catch (Exception exception) {
                 updateInProgress = false;
                 plugin.getLogger().warning("ShadowCore updater: " + exception.getMessage());
                 notifyResult(plugin, requester,
-                        "Lỗi cập nhật ShadowCore: " + exception.getMessage());
+                        "Error updating ShadowCore: " + exception.getMessage());
             }
         });
     }
