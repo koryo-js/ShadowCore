@@ -161,7 +161,8 @@ public final class JutsuManager {
     }
 
     public void refreshKcm(Player player) {
-        boolean wearing = JutsuItems.isChestplate(plugin, player.getInventory().getChestplate());
+        boolean wearing = JutsuItems.isChestplate(plugin, player.getInventory().getChestplate())
+                && JutsuItems.isHokageHat(plugin, player.getInventory().getHelmet());
         if (wearing) {
             activeKcm.add(player.getUniqueId());
             player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 1, true, false, false));
@@ -184,6 +185,10 @@ public final class JutsuManager {
             activeKcm.remove(player.getUniqueId());
             removeKcmModifier(player);
         }
+    }
+
+    public boolean isKcmActive(Player player) {
+        return activeKcm.contains(player.getUniqueId());
     }
 
     public void removeKcmModifier(Player player) {
