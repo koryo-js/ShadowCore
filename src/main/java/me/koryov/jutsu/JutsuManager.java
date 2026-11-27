@@ -18,7 +18,20 @@ public final class JutsuManager {
     final JavaPlugin plugin;
     private final NamespacedKey jikukanKey;
     private final NamespacedKey kcmSpeedKey;
-    private final Set<UUID> activeJikukan = new HashSet<>();
+    private final Map<UUID, JikukanPortal> activeJikukan = new HashMap<>();
+    private static final long JIKUKAN_DURATION_NANOS = 5_000_000_000L;
+
+    private static final class JikukanPortal {
+        private final Location origin;
+        private final Vector normal;
+        private final long expiresAt;
+
+        private JikukanPortal(Location origin, Vector normal, long expiresAt) {
+            this.origin = origin;
+            this.normal = normal;
+            this.expiresAt = expiresAt;
+        }
+    }
     private final Map<UUID, Location> lastAttackLocations = new HashMap<>();
     private final Set<UUID> activeKcm = new HashSet<>();
     private final Map<UUID, Set<PotionEffectType>> kcmOwnedEffects = new HashMap<>();
@@ -35,7 +48,7 @@ public final class JutsuManager {
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 refreshKcm(player);
-                if (activeJikukan.contains(player.getUniqueId())) {
+                if (activeJikukan.containsKey(player.getUniqueId())) {
                     pulseJikukan(player);
                 }
             }
@@ -128,8 +141,8 @@ public final class JutsuManager {
     }
 
     /**
-     * Shift + right-click stores the seal at the player's current position.
-     * The location and facing direction are persisted on the player.
+     * Shift + right-click stores the remote exit seal at the player's current position.
+     * The caster remains here; only intercepted attack entities will be sent to this seal.
      */
     public void placeJikukan(Player player) {
         if (!JutsuItems.isPattern(plugin, player.getInventory().getItemInMainHand())) return;
@@ -151,32 +164,29 @@ public final class JutsuManager {
     }
 
     /**
-     * Right-click toggles the portal. A Hiraishin Kunai is required as its exit.
+     * Right-click opens a short-lived interception portal at the caster's
+     * current position and facing. The saved seal is the remote exit.
      */
     public void activateJikukan(Player player) {
         if (!JutsuItems.isPattern(plugin, player.getInventory().getItemInMainHand())) return;
 
-        if (activeJikukan.remove(player.getUniqueId())) {
-            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, .8f, 1.2f);
-            player.sendActionBar("§5Jikūkan Pattern §7— cổng đã tắt");
-            return;
-        }
-
         Location anchor = loadJikukanAnchor(player);
         if (anchor == null) {
-            player.sendActionBar("§5Jikūkan Pattern §7— Shift + chuột phải để đặt kết ấn trước");
+            player.sendActionBar("§5Jikūkan Pattern §7— Shift + chuột phải để đặt ấn đầu ra trước");
             return;
         }
 
-        if (findHiraishinTarget(player) == null) {
-            player.sendActionBar("§5Jikūkan Pattern §7— cần ném Hiraishin Kunai để tạo lối ra");
-            return;
-        }
+        Location origin = player.getLocation().clone();
+        Vector normal = origin.getDirection().normalize();
+        activeJikukan.put(player.getUniqueId(), new JikukanPortal(
+                origin, normal, System.nanoTime() + JIKUKAN_DURATION_NANOS
+        ));
 
-
-        activeJikukan.add(player.getUniqueId());
-        anchor.getWorld().playSound(portalCenter(anchor), Sound.BLOCK_BEACON_ACTIVATE, .9f, 1.5f);
-        player.sendActionBar("§5Jikūkan Pattern §7— cổng đã mở, projectile sẽ đi qua Kunai");
+        Location center = portalCenter(origin);
+        origin.getWorld().playSound(center, Sound.BLOCK_BEACON_ACTIVATE, .9f, 1.5f);
+        origin.getWorld().spawnParticle(Particle.PORTAL, center, 45, .45, .6, .45, .16);
+        drawPortalRing(origin);
+        player.sendActionBar("§5Jikūkan Pattern §7— cổng hút đã mở trong 5 giây");
     }
     public void teleportJikukan(Player player) {
         org.bukkit.inventory.ItemStack item = player.getInventory().getItemInMainHand();
@@ -235,36 +245,47 @@ public final class JutsuManager {
      * Its velocity is captured before teleport and restored unchanged afterward.
      */
     private void pulseJikukan(Player owner) {
-        Location anchor = loadJikukanAnchor(owner);
-        Location target = findHiraishinTarget(owner);
-        if (anchor == null || target == null) {
-            activeJikukan.remove(owner.getUniqueId());
-            owner.sendActionBar("§5Jikūkan Pattern §7— mất kết nối với Hiraishin Kunai");
+        UUID ownerId = owner.getUniqueId();
+        JikukanPortal portal = activeJikukan.get(ownerId);
+        if (portal == null) return;
+
+        if (System.nanoTime() >= portal.expiresAt) {
+            activeJikukan.remove(ownerId);
+            portal.origin.getWorld().playSound(portalCenter(portal.origin),
+                    Sound.BLOCK_BEACON_DEACTIVATE, .65f, 1.4f);
+            if (owner.isOnline()) owner.sendActionBar("§5Jikūkan Pattern §7— cổng hút đã đóng");
             return;
         }
 
-        Vector normal = anchor.getDirection().normalize();
-        Location center = portalCenter(anchor);
-        drawPortalRing(anchor);
+        Location destinationAnchor = loadJikukanAnchor(owner);
+        if (destinationAnchor == null) {
+            activeJikukan.remove(ownerId);
+            owner.sendActionBar("§5Jikūkan Pattern §7— không tìm thấy ấn đầu ra");
+            return;
+        }
 
-        World world = anchor.getWorld();
-        if (world == null) return;
+        Location center = portalCenter(portal.origin);
+        World portalWorld = portal.origin.getWorld();
+        if (portalWorld == null) return;
 
-        for (Entity entity : world.getNearbyEntities(center, 2.6, 2.6, 2.6)) {
-            if (!isAttackObject(entity) || !entity.isValid()) continue;
+        drawPortalRing(portal.origin);
+
+        for (Entity entity : portalWorld.getNearbyEntities(center, 2.6, 2.6, 2.6)) {
+            if (!isAttackObject(entity) || !entity.isValid() || entity.isDead()) continue;
             if (entity instanceof Trident trident && isHiraishinKunai(trident)) continue;
 
             Location previous = lastAttackLocations.get(entity.getUniqueId());
             Location current = entity.getLocation().clone();
             if (previous == null || previous.getWorld() == null
-                    || !previous.getWorld().equals(world)) continue;
+                    || !previous.getWorld().equals(portalWorld)) continue;
 
-            if (!crossesPortalPlane(previous, current, center, normal)) continue;
+            if (!crossesPortalPlane(previous, current, center, portal.normal)) continue;
 
             Vector velocity = entity.getVelocity().clone();
             if (velocity.lengthSquared() < 0.0001) continue;
 
-            Location exit = target.clone().add(velocity.clone().normalize().multiply(0.8));
+            Location exit = destinationAnchor.clone()
+                    .add(velocity.clone().normalize().multiply(0.8));
             exit.setYaw(current.getYaw());
             exit.setPitch(current.getPitch());
 
@@ -272,12 +293,12 @@ public final class JutsuManager {
                 entity.setVelocity(velocity);
                 World exitWorld = exit.getWorld();
                 if (exitWorld != null) {
-                    exitWorld.spawnParticle(Particle.PORTAL, exit, 28, .35, .45, .35, .15);
+                    exitWorld.spawnParticle(Particle.PORTAL, exit, 32, .4, .5, .4, .16);
                     exitWorld.spawnParticle(Particle.END_ROD, exit, 8, .2, .25, .2, .02);
-                    exitWorld.playSound(exit, Sound.ENTITY_ENDERMAN_TELEPORT, .6f, 1.6f);
+                    exitWorld.playSound(exit, Sound.ENTITY_ENDERMAN_TELEPORT, .65f, 1.6f);
                 }
-                world.spawnParticle(Particle.PORTAL, center, 20, .35, .45, .35, .12);
-                world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, .45f, 1.8f);
+                portalWorld.spawnParticle(Particle.PORTAL, center, 22, .35, .45, .35, .12);
+                portalWorld.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, .45f, 1.8f);
             }
         }
     }
