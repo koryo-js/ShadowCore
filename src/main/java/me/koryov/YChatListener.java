@@ -267,6 +267,7 @@ public class YChatListener implements Listener {
 
             case "~y-hiraishin" -> hiraishin(ctx);
             case "~y-phoenix" -> phoenix(ctx);
+            case "~y-jutsu" -> jutsu(ctx);
             case "~y-timezone" -> giveSpecialItem(ctx, TimeZoneRemote.createItem(), "Time Zone Remote");
             case "~y-eyepatch" -> giveSpecialItem(ctx, ForcefieldManager.createEyePatch(), "Eye Patch");
 
@@ -2163,6 +2164,36 @@ private void kill(CommandContext ctx) {
         }
 
         player.sendMessage("§b[Phoenix Chamber] §7Dùng: ~y-phoenix set hoặc ~y-phoenix remove");
+    }
+
+    private void jutsu(CommandContext ctx) {
+        Player player = ctx.getSender();
+
+        if (!ctx.has(0)) {
+            player.sendMessage(Messages.PREFIX + "§7Dùng: ~y-jutsu <chestplate|pattern|hokage>");
+            return;
+        }
+
+        String action = ctx.get(0).toLowerCase();
+
+        switch (action) {
+            case "chestplate" -> {
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createChestplate(plugin), "Shinobi Chestplate");
+            }
+            case "pattern" -> {
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createPattern(plugin), "Jikūkan Pattern");
+            }
+            case "hokage", "hat", "hokagehat" -> {
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createHokageHat(plugin), "Hokage Hat");
+            }
+            case "all" -> {
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createChestplate(plugin), "Shinobi Chestplate");
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createPattern(plugin), "Jikūkan Pattern");
+                giveSpecialItem(ctx, me.koryov.jutsu.JutsuItems.createHokageHat(plugin), "Hokage Hat");
+            }
+            default -> player.sendMessage(Messages.PREFIX + Messages.ERROR
+                    + "Cách dùng: ~y-jutsu <chestplate|pattern|hokage|all>");
+        }
     }
 
     private void portal(CommandContext ctx) {
