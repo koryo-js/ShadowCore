@@ -4,3 +4,7 @@ main: me.koryov.ShadowCorePlugin
 api-version: '1.21'
 author: Koryo
 description: Custom admin utility plugin
+commands:
+  shadowjutsu:
+    description: Give ShadowCore Shinobi Jutsu items
+    usage: /shadowjutsu <chestplate|pattern>
