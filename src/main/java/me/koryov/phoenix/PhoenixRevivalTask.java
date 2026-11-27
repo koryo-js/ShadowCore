@@ -15,18 +15,12 @@ public final class PhoenixRevivalTask extends BukkitRunnable {
     private final PhoenixManager manager;
     private final Player player;
     private final Location chamber;
-    private final float previousWalkSpeed;
-    private final boolean previousGravity;
-    private final boolean previousInvulnerable;
     private int ticks;
 
     public PhoenixRevivalTask(PhoenixManager manager, Player player) {
         this.manager = manager;
         this.player = player;
         this.chamber = manager.getChamber(player);
-        this.previousWalkSpeed = player.getWalkSpeed();
-        this.previousGravity = player.hasGravity();
-        this.previousInvulnerable = player.isInvulnerable();
     }
 
     public void begin() {
@@ -137,7 +131,7 @@ public final class PhoenixRevivalTask extends BukkitRunnable {
         if (!player.isOnline()) {
             return;
         }
-        player.setWalkSpeed(0.2F); // Tốc độ đi bộ chuẩn của Minecraft
+        player.setWalkSpeed(0.2F);
         player.setGravity(true);
         player.setInvulnerable(false);
         player.setNoDamageTicks(0);
