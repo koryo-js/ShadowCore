@@ -270,7 +270,6 @@ public final class JutsuManager {
 
             if (entity.teleport(exit)) {
                 entity.setVelocity(velocity);
-                projectile.setVelocity(velocity);
                 World exitWorld = exit.getWorld();
                 if (exitWorld != null) {
                     exitWorld.spawnParticle(Particle.PORTAL, exit, 28, .35, .45, .35, .15);
