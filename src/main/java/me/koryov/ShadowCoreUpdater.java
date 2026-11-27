@@ -13,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -24,6 +25,7 @@ public final class ShadowCoreUpdater {
     private static final String USER_AGENT = "ShadowCore-Updater";
     private static final String UPDATE_FILE_NAME = "ShadowCore.jar";
     private static volatile boolean updateInProgress;
+    private static final AtomicBoolean checkInProgress = new AtomicBoolean(false);
 
     private ShadowCoreUpdater() {}
 
@@ -32,7 +34,7 @@ public final class ShadowCoreUpdater {
     }
 
     public static void checkAsync(JavaPlugin plugin, Player requester) {
-        if (updateInProgress) return;
+        if (updateInProgress || !checkInProgress.compareAndSet(false, true)) return;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -143,6 +145,8 @@ public final class ShadowCoreUpdater {
                 plugin.getLogger().warning("ShadowCore updater: " + exception.getMessage());
                 notifyResult(plugin, requester,
                         "Lỗi cập nhật ShadowCore: " + exception.getMessage());
+            } finally {
+                checkInProgress.set(false);
             }
         });
     }
