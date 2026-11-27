@@ -116,7 +116,14 @@ public final class ShadowCorePlugin extends JavaPlugin {
     public void onEnable() {
 
         hiraishinManager = new HiraishinManager(this);
+        // Check ngay khi bật plugin, sau đó tự kiểm tra lại mỗi 10 phút (12.000 ticks).
         ShadowCoreUpdater.checkAsync(this);
+        getServer().getScheduler().runTaskTimer(
+                this,
+                () -> ShadowCoreUpdater.checkAsync(this),
+                12_000L,
+                12_000L
+        );
         phoenixManager = new PhoenixManager(this);
         timeZoneManager = new TimeZoneManager(this);
         jutsuManager = new JutsuManager(this);
