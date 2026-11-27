@@ -344,6 +344,7 @@ public final class JutsuManager {
     }
 
     public void refreshKcm(Player player) {
+        applyKcmArmorColors(player);
         boolean wearing = JutsuItems.isChestplate(plugin, player.getInventory().getChestplate())
                 && JutsuItems.isHokageHat(plugin, player.getInventory().getHelmet());
         if (wearing) {
@@ -371,6 +372,24 @@ public final class JutsuManager {
         } else {
             activeKcm.remove(player.getUniqueId());
             removeKcmModifier(player);
+        }
+    }
+
+    private void applyKcmArmorColors(Player player) {
+        org.bukkit.inventory.ItemStack chest = player.getInventory().getChestplate();
+        if (JutsuItems.isChestplate(plugin, chest)
+                && chest.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta meta
+                && !Color.fromRGB(255, 176, 32).equals(meta.getColor())) {
+            meta.setColor(Color.fromRGB(255, 176, 32));
+            chest.setItemMeta(meta);
+        }
+
+        org.bukkit.inventory.ItemStack helmet = player.getInventory().getHelmet();
+        if (JutsuItems.isHokageHat(plugin, helmet)
+                && helmet.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta meta
+                && !Color.fromRGB(190, 35, 35).equals(meta.getColor())) {
+            meta.setColor(Color.fromRGB(190, 35, 35));
+            helmet.setItemMeta(meta);
         }
     }
 
