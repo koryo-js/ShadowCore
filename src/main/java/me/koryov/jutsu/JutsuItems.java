@@ -68,9 +68,10 @@ public final class JutsuItems {
         meta.setDisplayName(PATTERN_NAME);
         meta.setCustomModelData(21001);
         meta.setLore(java.util.List.of(
-                "§7Shift + chuột phải: đặt kết ấn tại vị trí hiện tại.",
-                "§7Chuột phải: bật hoặc tắt cổng không-thời gian.",
-                "§7Vật thể tấn công vật lý bay vào cổng sẽ bị chuyển tới Hiraishin Kunai."
+                "§7Shift + chuột phải: đặt ấn đầu ra tại vị trí hiện tại.",
+                "§7Chuột phải: mở cổng hút tạm thời ngay tại vị trí hiện tại (5 giây).",
+                "§7Vật thể tấn công vật lý bay xuyên qua cổng sẽ bị chuyển tới ấn đầu ra.",
+                "§7Chỉ vật thể bị dịch chuyển; người thi triển không bị ảnh hưởng."
         ));
         meta.getPersistentDataContainer().set(
                 new NamespacedKey(plugin, "jikukan_pattern"),
